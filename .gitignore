@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build output
+dist/
+client/dist/
+server/dist/
+public/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Local config and API keys (stored in ~/.videostallone, not in project)
+.api_key
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Generated project files (user content, not source)
+# Uncomment if you don't want to track any generated video/image output:
+# **/*.mp4
+# **/*.png
+# **/project.json
+
+# Temp
+tmp/
+temp/

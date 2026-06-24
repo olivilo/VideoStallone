@@ -1,0 +1,22 @@
+services:
+  videostallone:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: videostallone
+    restart: unless-stopped
+    ports:
+      - "4123:4123"
+    volumes:
+      # Persists API key and app settings outside the container
+      - videostallone-config:/root/.videostallone
+      # IMPORTANT: Mount the folder where your video projects will be stored.
+      # Change /your/projects/folder to match your actual path on both sides.
+      # Example: - /home/user/videos:/home/user/videos
+      - /your/projects/folder:/your/projects/folder
+    environment:
+      - NODE_ENV=production
+      - PORT=4123
+
+volumes:
+  videostallone-config:
