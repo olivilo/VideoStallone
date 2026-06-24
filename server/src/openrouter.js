@@ -120,7 +120,7 @@ export async function generateImage({ apiKey, model, prompt, referenceImageUrls 
   const body = {
     model,
     messages: [{ role: "user", content: userContent }],
-    modalities: ["image", "text"]
+    modalities: ["image"]
   };
   if (seed != null) body.seed = seed;
 
@@ -131,7 +131,15 @@ export async function generateImage({ apiKey, model, prompt, referenceImageUrls 
   });
   const json = await handleResponse(res);
   const message = json?.choices?.[0]?.message;
-  const images = message?.images || [];
+
+  // Images can come back as message.images[] or embedded in message.content[]
+  let images = message?.images || [];
+  if (images.length === 0 && Array.isArray(message?.content)) {
+    images = message.content
+      .filter(c => c.type === "image_url")
+      .map(c => ({ image_url: c.image_url }));
+  }
+
   if (images.length === 0) {
     throw new OpenRouterError(
       "Das Bildmodell hat kein Bild zurückgegeben. Modell ggf. wechseln.",
@@ -139,7 +147,6 @@ export async function generateImage({ apiKey, model, prompt, referenceImageUrls 
       json
     );
   }
-  // images[0].image_url.url ist meist eine data: URL oder gehostete URL
   return images.map((img) => img.image_url?.url).filter(Boolean);
 }
 
@@ -210,9 +217,10 @@ export async function listImageModels({ apiKey }) {
   return (json.data || [])
     .filter(m => {
       const mod = (m.architecture?.modality || "").toLowerCase();
-      // Include any model that can output images
-      return mod.includes("->image") || mod.includes("image+") ||
-             (mod.includes("image") && mod.includes("->"));
+      // Only models whose OUTPUT side contains "image" (e.g. "text->image", "text+image->image+text")
+      // Excludes multimodal LLMs like "text+image->text" that accept images but only output text
+      const output = mod.split("->").pop() || "";
+      return output.includes("image");
     })
     .map(m => {
       const p = m.pricing || {};
