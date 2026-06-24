@@ -71,11 +71,27 @@ On first launch the app will ask for:
 
 ## Docker (self-hosting)
 
+The easiest way to run VideoStallone — no Node.js install needed.
+
 ```bash
-docker compose up -d --build
+# 1. Download the compose file
+curl -O https://raw.githubusercontent.com/olivilo/VideoStallone/main/docker-compose.yml
+
+# 2. Edit docker-compose.yml and set your projects folder path (see comments inside)
+
+# 3. Pull and start
+docker compose up -d
+```
+
+Or pull the image directly:
+
+```bash
+docker pull olivilo23/videostallone:latest
 ```
 
 Serves the full app (frontend + backend) at **http://localhost:4123**.
+
+**Docker Hub:** https://hub.docker.com/r/olivilo23/videostallone
 
 Edit `docker-compose.yml` to mount your workspace folder:
 
@@ -84,6 +100,8 @@ volumes:
   - videostallone-config:/root/.videostallone   # persists API key & settings
   - /your/projects/folder:/your/projects/folder # your workspace
 ```
+
+To build locally from source instead of pulling the pre-built image, see the comment in `docker-compose.yml`.
 
 ---
 

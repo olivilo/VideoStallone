@@ -1,8 +1,10 @@
 services:
   videostallone:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: olivilo23/videostallone:latest
+    # To build locally from source instead, comment out the line above and uncomment below:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     container_name: videostallone
     restart: unless-stopped
     ports:
