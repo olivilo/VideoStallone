@@ -88,6 +88,10 @@ export function startVideoPolling({ apiKey, workspaceRoot, folder, sceneId, jobI
   tick();
 }
 
+export function isPollingActive(folder, sceneId) {
+  return activePolls.has(`${folder}:${sceneId}`);
+}
+
 export function stopVideoPolling(folder, sceneId) {
   const key = `${folder}:${sceneId}`;
   const interval = activePolls.get(key);

@@ -11,12 +11,13 @@ const STORYBOARD_LABELS = {
 };
 
 const VIDEO_LABELS = {
-  idle:       { text: "Video noch nicht gestartet",  className: "badge-neutral" },
-  queued:     { text: "Video-Job eingereiht...",      className: "badge-progress" },
-  generating: { text: "Video wird generiert...",      className: "badge-progress" },
-  ready:      { text: "Video bereit – zur Prüfung",  className: "badge-review" },
-  approved:   { text: "Video freigegeben ✓",         className: "badge-success" },
-  error:      { text: "Fehler bei Videogenerierung", className: "badge-error" }
+  idle:        { text: "Video noch nicht gestartet",  className: "badge-neutral" },
+  submitting:  { text: "Wird gesendet...",             className: "badge-progress" },
+  queued:      { text: "Video-Job eingereiht...",      className: "badge-progress" },
+  generating:  { text: "Video wird generiert...",      className: "badge-progress" },
+  ready:       { text: "Video bereit – zur Prüfung",  className: "badge-review" },
+  approved:    { text: "Video freigegeben ✓",         className: "badge-success" },
+  error:       { text: "Fehler bei Videogenerierung", className: "badge-error" }
 };
 
 export default function SceneCard({
@@ -32,6 +33,7 @@ export default function SceneCard({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(scene);
   const [busy, setBusy] = useState(false);
+  const [submittingVideo, setSubmittingVideo] = useState(false);
   const [error, setError] = useState("");
   const [generateAudio, setGenerateAudio] = useState(generateAudioDefault);
 
@@ -107,6 +109,7 @@ export default function SceneCard({
 
   async function handleGenerateVideo() {
     setBusy(true);
+    setSubmittingVideo(true);
     setError("");
     try {
       await api.generateVideo(workspaceRoot, folder, scene.id, { model: videoModel, generateAudio });
@@ -115,6 +118,7 @@ export default function SceneCard({
       setError(err.message);
     } finally {
       setBusy(false);
+      setSubmittingVideo(false);
     }
   }
 
@@ -145,7 +149,8 @@ export default function SceneCard({
   }
 
   const sbBadge = STORYBOARD_LABELS[scene.storyboardStatus] || STORYBOARD_LABELS.pending;
-  const vidBadge = VIDEO_LABELS[scene.videoStatus] || VIDEO_LABELS.idle;
+  const effectiveVideoStatus = submittingVideo ? "submitting" : scene.videoStatus;
+  const vidBadge = VIDEO_LABELS[effectiveVideoStatus] || VIDEO_LABELS.idle;
 
   const supportedDurations = getSupportedDurations(videoModel);
   const snappedDuration = snapDuration(scene.durationSeconds, videoModel);

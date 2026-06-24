@@ -4,6 +4,9 @@ import IdeaInput from "./IdeaInput";
 import SceneCard from "./SceneCard";
 import RefinementBar from "./RefinementBar";
 import CastPanel from "./CastPanel";
+import ModelSelect from "./ModelSelect";
+import CostBar from "./CostBar";
+import { setLiveCapabilities } from "../videoModelCapabilities";
 
 // Preisangaben pro Sekunde (Stand Juni 2026, Quelle: OpenRouter)
 const VIDEO_PRICING_MAP = {
@@ -23,15 +26,6 @@ const VIDEO_PRICING_MAP = {
   "bytedance/seedance-1.5-pro":  { price: "nach Video-Token (mit Audio)", badge: "" },
 };
 
-function videoModelLabel(m) {
-  // Preis aus API-Response falls vorhanden, sonst aus Fallback-Map
-  let price = null;
-  if (m.pricing?.video) price = `$${m.pricing.video}/s`;
-  else if (m.pricing?.per_second) price = `$${m.pricing.per_second}/s`;
-  else if (VIDEO_PRICING_MAP[m.id]) price = VIDEO_PRICING_MAP[m.id].price;
-  const name = m.name || m.id;
-  return price ? `${name} — ${price}` : name;
-}
 
 export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultModels, hasApiKey }) {
   const [project, setProject] = useState(null);
@@ -42,6 +36,12 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
   const [refining, setRefining] = useState(false);
   const [videoModels, setVideoModels] = useState([]);
   const [videoModelsError, setVideoModelsError] = useState("");
+  const [textModels, setTextModels] = useState([]);
+  const [textModelsLoading, setTextModelsLoading] = useState(false);
+  const [imageModels, setImageModels] = useState([]);
+  const [imageModelsLoading, setImageModelsLoading] = useState(false);
+  const [snapRunning, setSnapRunning] = useState(false);
+  const [snapResult, setSnapResult] = useState(null);
   const [batchRunning, setBatchRunning] = useState(false);
   const [exportRunning, setExportRunning] = useState(false);
   const [exportResult, setExportResult] = useState(null);
@@ -75,20 +75,55 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project]);
 
-  // Video-Modelle neu laden sobald API-Key gesetzt/geändert wird
+  // Alle Modell-Listen laden sobald API-Key gesetzt/geändert wird
   useEffect(() => {
     if (!hasApiKey) {
       setVideoModels([]);
-      setVideoModelsError("Kein API-Key — Video-Modelle können nicht geladen werden.");
+      setVideoModelsError("Kein API-Key — Modelle können nicht geladen werden.");
+      setTextModels([]);
+      setImageModels([]);
       return;
     }
     setVideoModelsError("");
     api.listVideoModels()
-      .then((data) => setVideoModels(data?.data || []))
+      .then((data) => {
+        const raw = data?.data || [];
+        setVideoModels(raw.map(m => {
+          let priceLabel = null;
+          let pricePerSec = 0;
+          if (m.pricing?.video) {
+            pricePerSec = parseFloat(m.pricing.video) || 0;
+            priceLabel = `$${m.pricing.video}/s`;
+          } else if (m.pricing?.per_second) {
+            pricePerSec = parseFloat(m.pricing.per_second) || 0;
+            priceLabel = `$${m.pricing.per_second}/s`;
+          } else if (VIDEO_PRICING_MAP[m.id]) {
+            priceLabel = VIDEO_PRICING_MAP[m.id].price;
+          }
+          return { id: m.id, name: m.name || m.id, priceLabel, pricePerSec };
+        }));
+      })
       .catch((err) => {
         setVideoModels([]);
-        setVideoModelsError(`Video-Modelle konnten nicht geladen werden: ${err.message}`);
+        setVideoModelsError(`Video-Modelle: ${err.message}`);
       });
+
+    // Load live capabilities so SceneCard duration selectors and snap are accurate
+    api.getVideoModelCapabilities()
+      .then(caps => setLiveCapabilities(caps))
+      .catch(() => {});
+
+    setTextModelsLoading(true);
+    api.listTextModels()
+      .then(data => setTextModels(data?.models || []))
+      .catch(() => setTextModels([]))
+      .finally(() => setTextModelsLoading(false));
+
+    setImageModelsLoading(true);
+    api.listImageModels()
+      .then(data => setImageModels(data?.models || []))
+      .catch(() => setImageModels([]))
+      .finally(() => setImageModelsLoading(false));
   }, [hasApiKey]);
 
   async function handlePlan(idea, targetSceneCount) {
@@ -133,6 +168,23 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
       setProject(project);
     } catch (err) {
       setError(err.message);
+    }
+  }
+
+  async function handleSnapDurations() {
+    const model = project.settings.videoModel;
+    if (!model) return;
+    setSnapRunning(true);
+    setSnapResult(null);
+    setError("");
+    try {
+      const { project: updated, changed, details } = await api.snapAllDurations(workspaceRoot, folder, model);
+      setProject(updated);
+      setSnapResult({ changed, details: details || [] });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSnapRunning(false);
     }
   }
 
@@ -204,58 +256,56 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
         <>
           <section className="project-models-bar">
             <label>
-              Text-Modell
-              <input
-                list="text-model-list"
-                value={project.settings.textModel}
-                onChange={(e) => handleModelChange("textModel", e.target.value)}
-                placeholder="Modell wählen oder eingeben"
+              <span className="model-bar-label">
+                Video-Modell
+                {!project.settings.videoModel && <span className="model-required-badge">Zuerst wählen!</span>}
+              </span>
+              <ModelSelect
+                value={project.settings.videoModel || ""}
+                onChange={(v) => { handleModelChange("videoModel", v); setSnapResult(null); }}
+                models={videoModels}
+                loading={videoModels.length === 0 && hasApiKey}
+                error={videoModelsError}
+                placeholder="Video-Modell wählen..."
               />
-              <datalist id="text-model-list">
-                <option value="anthropic/claude-sonnet-4.5" />
-                <option value="anthropic/claude-haiku-4-5-20251001" />
-                <option value="anthropic/claude-opus-4-8" />
-                <option value="openai/gpt-4o" />
-                <option value="openai/gpt-4o-mini" />
-                <option value="google/gemini-2.5-flash" />
-                <option value="google/gemini-2.5-pro" />
-                <option value="meta-llama/llama-3.3-70b-instruct" />
-                <option value="mistralai/mistral-large-2411" />
-              </datalist>
+              {project.settings.videoModel && project.scenes.length > 0 && (
+                <button
+                  className="btn-snap-durations"
+                  onClick={handleSnapDurations}
+                  disabled={snapRunning}
+                  title="Alle Szenendauern auf nächsten gültigen Wert für dieses Modell anpassen"
+                >
+                  {snapRunning ? "..." : "⏱ Dauern anpassen"}
+                </button>
+              )}
+              {snapResult !== null && (
+                <span className="snap-result">
+                  {snapResult.changed === 0
+                    ? "✓ Alle Dauern passen bereits"
+                    : `✓ ${snapResult.changed} Szene${snapResult.changed !== 1 ? "n" : ""} angepasst${snapResult.details.length ? ": " + snapResult.details.map(d => `S${d.scene} ${d.from}s→${d.to}s`).join(", ") : ""}`
+                  }
+                </span>
+              )}
             </label>
             <label>
               Bild-Modell
-              <input
-                list="image-model-list"
-                value={project.settings.imageModel}
-                onChange={(e) => handleModelChange("imageModel", e.target.value)}
-                placeholder="Modell wählen oder eingeben"
+              <ModelSelect
+                value={project.settings.imageModel || ""}
+                onChange={(v) => handleModelChange("imageModel", v)}
+                models={imageModels}
+                loading={imageModelsLoading}
+                placeholder="Bild-Modell wählen..."
               />
-              <datalist id="image-model-list">
-                <option value="google/gemini-2.5-flash-image" />
-                <option value="openai/gpt-image-1" />
-                <option value="black-forest-labs/flux-1.1-pro" />
-                <option value="black-forest-labs/flux-kontext-max" />
-                <option value="black-forest-labs/flux-kontext-pro" />
-                <option value="ideogram/V_2_TURBO" />
-                <option value="stabilityai/sd3.5-large-turbo" />
-              </datalist>
             </label>
             <label>
-              Video-Modell
-              <select
-                value={project.settings.videoModel || ""}
-                onChange={(e) => handleModelChange("videoModel", e.target.value)}
-              >
-                <option value="">-- wählen --</option>
-                {videoModels.map((m) => (
-                  <option key={m.id} value={m.id}>{videoModelLabel(m)}</option>
-                ))}
-                {project.settings.videoModel && !videoModels.find((m) => m.id === project.settings.videoModel) && (
-                  <option value={project.settings.videoModel}>{project.settings.videoModel}</option>
-                )}
-              </select>
-              {videoModelsError && <span className="hint-text small" style={{ color: "var(--color-warning, #f59e0b)" }}>{videoModelsError}</span>}
+              Text-Modell
+              <ModelSelect
+                value={project.settings.textModel || ""}
+                onChange={(v) => handleModelChange("textModel", v)}
+                models={textModels}
+                loading={textModelsLoading}
+                placeholder="Text-Modell wählen..."
+              />
             </label>
             <label>
               Stil
@@ -306,26 +356,19 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
               <summary>💰 Preisvergleich Video-Modelle</summary>
               <table className="video-price-table">
                 <thead>
-                  <tr><th>Modell</th><th>Preis/Sekunde</th><th></th></tr>
+                  <tr><th>Modell</th><th>Preis</th></tr>
                 </thead>
                 <tbody>
-                  {videoModels.map((m) => {
-                    const info = VIDEO_PRICING_MAP[m.id];
-                    let price = info?.price;
-                    if (!price && m.pricing?.video) price = `$${m.pricing.video}/s`;
-                    if (!price && m.pricing?.per_second) price = `$${m.pricing.per_second}/s`;
-                    return (
-                      <tr
-                        key={m.id}
-                        className={project.settings.videoModel === m.id ? "price-row-active" : ""}
-                        onClick={() => handleModelChange("videoModel", m.id)}
-                      >
-                        <td><code>{m.name || m.id}</code></td>
-                        <td>{price || "—"}</td>
-                        <td>{info?.badge || ""}</td>
-                      </tr>
-                    );
-                  })}
+                  {videoModels.map((m) => (
+                    <tr
+                      key={m.id}
+                      className={project.settings.videoModel === m.id ? "price-row-active" : ""}
+                      onClick={() => handleModelChange("videoModel", m.id)}
+                    >
+                      <td><code>{m.name}</code></td>
+                      <td>{m.priceLabel || "—"}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
               <p className="hint-text small" style={{ marginTop: 6 }}>
@@ -376,6 +419,8 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
               />
             ))}
           </div>
+
+          <CostBar project={project} videoModels={videoModels} />
 
           <section className="export-section">
             <h3>🎬 Film exportieren ({readyOrApprovedVideos.length}/{project.scenes.length} Videos bereit)</h3>

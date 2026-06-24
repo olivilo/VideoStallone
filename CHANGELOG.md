@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.2.0 — 2026-06-24
+
+### Model selection overhaul
+- **Video model now first** in the model bar with a pulsing "Select first!" badge until chosen — durations are model-specific so this must be picked before scenes are configured
+- **All three model dropdowns** (video, image, text) replaced with a searchable combobox (`ModelSelect`) showing model name, provider, context size, and live pricing — supports free-text entry for any OpenRouter model ID
+- **Live model lists** fetched directly from OpenRouter API at startup — text and image models now populated from `/api/v1/models` filtered by modality, no more hardcoded lists
+- Image model filter widened to catch multimodal models (e.g. Gemini Flash) that output images
+
+### Duration capabilities — corrected and dynamic
+- **Fixed wrong capabilities map**: Wan 2.6/2.7 corrected to `[5, 10]` (was `[4, 6, 8]`), Veo 3.1 corrected to `[4, 6, 8]` (was `[5, 6, 7, 8]`), new models added (`alibaba/happyhorse`, `x-ai/grok-imagine-video`, `kwaivgi/kling`)
+- **Range-type models** (Kling, HappyHorse, Grok) now use `{ min, max }` clamping instead of a fixed list
+- **Live capabilities** from OpenRouter `/api/v1/videos/models` override the fallback map — `supported_durations` per model cached in-memory on first load
+- Client loads live capabilities on startup via `/api/video-models/capabilities` — `setLiveCapabilities()` updates the client-side snap/display logic
+- **"Snap durations" button** now shows exactly which scenes changed: `✓ 3 Szenen: S1 6s→5s, S3 6s→5s`; returns a clear error if the model has no known capabilities
+
+### Cost tracking
+- **CostBar** at the bottom of each project showing:
+  - *Bisherige Video-Kosten*: sum of `scene.videoCost` for all generated videos
+  - *Geschätzte Batch-Kosten*: pending scenes × price/s × duration for the selected model
+  - *Gesamt Film*: total duration and estimated combined cost
+- Video cost stored per scene at job submission time (`pricePerSec × snappedDuration`)
+- Live pricing cached from `/api/v1/videos/models` response (`pricing.video` / `pricing.per_second`)
+
+### Bug fixes
+- Fixed Cast description generation wiping unsaved draft fields — draft is now merged server-side before the LLM call and saved atomically
+- Fixed photo reference workflow — uploaded photos now used automatically as visual anchors even without a generated reference image; `📌` button sets any photo as explicit reference
+- Added 45s timeout on video job submission, 20s on status polling, 120s on download
+- Server restart recovery: open video jobs (status `queued`/`generating`) automatically resume polling when the project is next loaded
+- "Wird gesendet..." badge appears immediately on video submit before server responds
+
 ## v0.1.0 — Initial Release (2026-06-24)
 
 First public release of VideoStallone. The full feature set built from scratch:

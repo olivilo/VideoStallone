@@ -82,8 +82,13 @@ export const api = {
       method: "POST", body: JSON.stringify({ variantIndex })
     }),
 
-  // Video
+  snapAllDurations: (workspaceRoot, folder, model) =>
+    request(`/projects/${folder}/snap-durations${qs({ workspaceRoot })}`, { method: "POST", body: JSON.stringify({ model }) }),
+
+  // Models
   listVideoModels: () => request("/video-models"),
+  listTextModels: () => request("/text-models"),
+  listImageModels: () => request("/image-models"),
   getVideoModelCapabilities: () => request("/video-models/capabilities"),
   generateVideo: (workspaceRoot, folder, sceneId, options) =>
     request(`/projects/${folder}/scenes/${sceneId}/video${qs({ workspaceRoot })}`, {
@@ -109,8 +114,9 @@ export const api = {
   deleteGlobalCast: (id) => request(`/cast/global/${id}`, { method: "DELETE" }),
   uploadGlobalCastPhoto: (id, base64, filename) => request(`/cast/global/${id}/photo`, { method: "POST", body: JSON.stringify({ base64, filename }) }),
   deleteGlobalCastPhoto: (id, photoPath) => request(`/cast/global/${id}/photo`, { method: "DELETE", body: JSON.stringify({ photoPath }) }),
-  generateGlobalCastReference: (id, imageModel) => request(`/cast/global/${id}/generate-reference`, { method: "POST", body: JSON.stringify({ imageModel }) }),
-  generateGlobalCastDescription: (id, textModel) => request(`/cast/global/${id}/generate-description`, { method: "POST", body: JSON.stringify({ textModel }) }),
+  setGlobalCastReferencePhoto: (id, photoPath) => request(`/cast/global/${id}/set-reference-photo`, { method: "POST", body: JSON.stringify({ photoPath }) }),
+  generateGlobalCastReference: (id, imageModel, draft) => request(`/cast/global/${id}/generate-reference`, { method: "POST", body: JSON.stringify({ imageModel, draft }) }),
+  generateGlobalCastDescription: (id, textModel, draft) => request(`/cast/global/${id}/generate-description`, { method: "POST", body: JSON.stringify({ textModel, draft }) }),
   globalCastAssetUrl: (relPath) => `${BASE}/cast/global/assets/${relPath}`,
 
   // Project Cast
@@ -120,8 +126,9 @@ export const api = {
   deleteProjectCast: (workspaceRoot, folder, id) => request(`/projects/${folder}/cast/${id}${qs({ workspaceRoot })}`, { method: "DELETE" }),
   uploadProjectCastPhoto: (workspaceRoot, folder, id, base64, filename) => request(`/projects/${folder}/cast/${id}/photo${qs({ workspaceRoot })}`, { method: "POST", body: JSON.stringify({ base64, filename }) }),
   deleteProjectCastPhoto: (workspaceRoot, folder, id, photoPath) => request(`/projects/${folder}/cast/${id}/photo${qs({ workspaceRoot })}`, { method: "DELETE", body: JSON.stringify({ photoPath }) }),
-  generateProjectCastReference: (workspaceRoot, folder, id, imageModel) => request(`/projects/${folder}/cast/${id}/generate-reference${qs({ workspaceRoot })}`, { method: "POST", body: JSON.stringify({ imageModel }) }),
-  generateProjectCastDescription: (workspaceRoot, folder, id, textModel) => request(`/projects/${folder}/cast/${id}/generate-description${qs({ workspaceRoot })}`, { method: "POST", body: JSON.stringify({ textModel }) }),
+  setProjectCastReferencePhoto: (workspaceRoot, folder, id, photoPath) => request(`/projects/${folder}/cast/${id}/set-reference-photo${qs({ workspaceRoot })}`, { method: "POST", body: JSON.stringify({ photoPath }) }),
+  generateProjectCastReference: (workspaceRoot, folder, id, imageModel, draft) => request(`/projects/${folder}/cast/${id}/generate-reference${qs({ workspaceRoot })}`, { method: "POST", body: JSON.stringify({ imageModel, draft }) }),
+  generateProjectCastDescription: (workspaceRoot, folder, id, textModel, draft) => request(`/projects/${folder}/cast/${id}/generate-description${qs({ workspaceRoot })}`, { method: "POST", body: JSON.stringify({ textModel, draft }) }),
   importGlobalCast: (workspaceRoot, folder, globalId) => request(`/projects/${folder}/cast/import/${globalId}${qs({ workspaceRoot })}`, { method: "POST" }),
   pushCastToGlobal: (workspaceRoot, folder, id) => request(`/projects/${folder}/cast/${id}/push-global${qs({ workspaceRoot })}`, { method: "POST" }),
   projectCastAssetUrl: (workspaceRoot, folder, relPath) => `${BASE}/projects/${folder}/assets/cast/${relPath}${qs({ workspaceRoot })}`,

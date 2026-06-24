@@ -131,12 +131,33 @@ castRouter.delete("/cast/global/:id/photo", wrapAsync(async (req, res) => {
   res.json({ entry });
 }));
 
+castRouter.post("/cast/global/:id/set-reference-photo", wrapAsync(async (req, res) => {
+  const { photoPath } = req.body;
+  if (!photoPath) return res.status(400).json({ error: "photoPath fehlt" });
+  const castDir = getGlobalCastDir();
+  const srcAbs = path.resolve(castDir, photoPath);
+  if (!srcAbs.startsWith(path.resolve(castDir))) return res.status(403).json({ error: "Ungültig" });
+  if (!fs.existsSync(srcAbs)) return res.status(404).json({ error: "Foto nicht gefunden" });
+  const entries = loadGlobalCast();
+  const entry = entries.find(e => e.id === req.params.id);
+  if (!entry) return res.status(404).json({ error: "Nicht gefunden" });
+  const refDir = path.join(castDir, "references");
+  if (!fs.existsSync(refDir)) fs.mkdirSync(refDir, { recursive: true });
+  const fileName = `${entry.id}_ref${path.extname(photoPath)}`;
+  fs.copyFileSync(srcAbs, path.join(refDir, fileName));
+  entry.referenceImagePath = `references/${fileName}`;
+  entry.updatedAt = new Date().toISOString();
+  saveGlobalCast(entries);
+  res.json({ entry });
+}));
+
 castRouter.post("/cast/global/:id/generate-reference", wrapAsync(async (req, res) => {
-  const { imageModel } = req.body;
+  const { imageModel, draft } = req.body;
   const cfg = loadConfig();
   const entries = loadGlobalCast();
   const entry = entries.find(e => e.id === req.params.id);
   if (!entry) return res.status(404).json({ error: "Nicht gefunden" });
+  if (draft) Object.assign(entry, { ...draft, id: entry.id, photos: entry.photos, referenceImagePath: entry.referenceImagePath });
   entry.referenceImagePath = await generateReference(entry, getGlobalCastDir(), imageModel || cfg.defaultModels.image, cfg.openrouterApiKey);
   entry.updatedAt = new Date().toISOString();
   saveGlobalCast(entries);
@@ -144,11 +165,12 @@ castRouter.post("/cast/global/:id/generate-reference", wrapAsync(async (req, res
 }));
 
 castRouter.post("/cast/global/:id/generate-description", wrapAsync(async (req, res) => {
-  const { textModel } = req.body;
+  const { textModel, draft } = req.body;
   const cfg = loadConfig();
   const entries = loadGlobalCast();
   const entry = entries.find(e => e.id === req.params.id);
   if (!entry) return res.status(404).json({ error: "Nicht gefunden" });
+  if (draft) Object.assign(entry, { ...draft, id: entry.id, photos: entry.photos, referenceImagePath: entry.referenceImagePath });
   entry.aiDescription = (await generateDescription(entry, getGlobalCastDir(), textModel || cfg.defaultModels.text, cfg.openrouterApiKey)).trim();
   entry.updatedAt = new Date().toISOString();
   saveGlobalCast(entries);
@@ -224,13 +246,35 @@ castRouter.delete("/projects/:folder/cast/:id/photo", wrapAsync(async (req, res)
   res.json({ entry });
 }));
 
+castRouter.post("/projects/:folder/cast/:id/set-reference-photo", wrapAsync(async (req, res) => {
+  const { workspaceRoot } = req.query;
+  const { photoPath } = req.body;
+  if (!photoPath) return res.status(400).json({ error: "photoPath fehlt" });
+  const castDir = getProjectCastDir(workspaceRoot, req.params.folder);
+  const srcAbs = path.resolve(castDir, photoPath);
+  if (!srcAbs.startsWith(path.resolve(castDir))) return res.status(403).json({ error: "Ungültig" });
+  if (!fs.existsSync(srcAbs)) return res.status(404).json({ error: "Foto nicht gefunden" });
+  const cast = loadProjectCast(workspaceRoot, req.params.folder);
+  const entry = cast.find(e => e.id === req.params.id);
+  if (!entry) return res.status(404).json({ error: "Nicht gefunden" });
+  const refDir = path.join(castDir, "references");
+  if (!fs.existsSync(refDir)) fs.mkdirSync(refDir, { recursive: true });
+  const fileName = `${entry.id}_ref${path.extname(photoPath)}`;
+  fs.copyFileSync(srcAbs, path.join(refDir, fileName));
+  entry.referenceImagePath = `references/${fileName}`;
+  entry.updatedAt = new Date().toISOString();
+  saveProjectCast(workspaceRoot, req.params.folder, cast);
+  res.json({ entry });
+}));
+
 castRouter.post("/projects/:folder/cast/:id/generate-reference", wrapAsync(async (req, res) => {
   const { workspaceRoot } = req.query;
-  const { imageModel } = req.body;
+  const { imageModel, draft } = req.body;
   const cfg = loadConfig();
   const cast = loadProjectCast(workspaceRoot, req.params.folder);
   const entry = cast.find(e => e.id === req.params.id);
   if (!entry) return res.status(404).json({ error: "Nicht gefunden" });
+  if (draft) Object.assign(entry, { ...draft, id: entry.id, photos: entry.photos, referenceImagePath: entry.referenceImagePath });
   const castDir = getProjectCastDir(workspaceRoot, req.params.folder);
   entry.referenceImagePath = await generateReference(entry, castDir, imageModel || cfg.defaultModels.image, cfg.openrouterApiKey);
   entry.updatedAt = new Date().toISOString();
@@ -240,11 +284,12 @@ castRouter.post("/projects/:folder/cast/:id/generate-reference", wrapAsync(async
 
 castRouter.post("/projects/:folder/cast/:id/generate-description", wrapAsync(async (req, res) => {
   const { workspaceRoot } = req.query;
-  const { textModel } = req.body;
+  const { textModel, draft } = req.body;
   const cfg = loadConfig();
   const cast = loadProjectCast(workspaceRoot, req.params.folder);
   const entry = cast.find(e => e.id === req.params.id);
   if (!entry) return res.status(404).json({ error: "Nicht gefunden" });
+  if (draft) Object.assign(entry, { ...draft, id: entry.id, photos: entry.photos, referenceImagePath: entry.referenceImagePath });
   const castDir = getProjectCastDir(workspaceRoot, req.params.folder);
   entry.aiDescription = (await generateDescription(entry, castDir, textModel || cfg.defaultModels.text, cfg.openrouterApiKey)).trim();
   entry.updatedAt = new Date().toISOString();

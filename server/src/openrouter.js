@@ -4,29 +4,50 @@ const BASE_URL = "https://openrouter.ai/api/v1";
 
 // Supported durations per model (seconds). Used for snapping before job submission.
 export const VIDEO_MODEL_CAPABILITIES = {
-  "google/veo-3.1":              { durations: [5, 6, 7, 8] },
-  "google/veo-3.1-fast":         { durations: [5, 6, 7, 8] },
-  "google/veo-3.1-lite":         { durations: [5, 6, 7, 8] },
-  "kuaishou/kling-v3-pro":       { durations: [5, 10] },
-  "kuaishou/kling-v3-standard":  { durations: [5, 10] },
-  "kuaishou/kling-video-o1":     { durations: [5, 10] },
-  "minimax/hailuo-2.3":          { durations: [6] },
-  "alibaba/wan-2.7":             { durations: [4, 6, 8] },
-  "alibaba/wan-2.6":             { durations: [4, 6, 8] },
-  "bytedance/seedance-2.0":      { durations: [5, 10] },
-  "bytedance/seedance-2.0-fast": { durations: [5, 10] },
-  "bytedance/seedance-1.5-pro":  { durations: [5, 10] },
-  "openai/sora-2-pro":           { durations: [5, 10, 15, 20] },
-  "xai/grok-imagine-video":      { durations: [4, 6, 8, 10] },
+  "google/veo-3.1":               { durations: [4, 6, 8] },
+  "google/veo-3.1-fast":          { durations: [4, 6, 8] },
+  "google/veo-3.1-lite":          { durations: [4, 5, 6, 7, 8] },
+  "kwaivgi/kling-v3.0-pro":       { min: 3, max: 15 },
+  "kwaivgi/kling-v3.0-std":       { min: 3, max: 15 },
+  "kwaivgi/kling-video-o1":       { durations: [5, 10] },
+  "minimax/hailuo-2.3":           { durations: [6] },
+  "alibaba/wan-2.7":              { durations: [5, 10] },
+  "alibaba/wan-2.6":              { durations: [5, 10] },
+  "alibaba/happyhorse-1.1":       { min: 3, max: 15 },
+  "alibaba/happyhorse-1.0":       { min: 3, max: 15 },
+  "bytedance/seedance-2.0":       { durations: [5, 10] },
+  "bytedance/seedance-2.0-fast":  { durations: [5, 10] },
+  "bytedance/seedance-1.5-pro":   { durations: [5, 10] },
+  "openai/sora-2-pro":            { durations: [5, 10, 15, 20] },
+  "x-ai/grok-imagine-video":      { min: 1, max: 15 },
+  // Legacy IDs
+  "kuaishou/kling-v3-pro":        { min: 3, max: 15 },
+  "kuaishou/kling-v3-standard":   { min: 3, max: 15 },
+  "kuaishou/kling-video-o1":      { durations: [5, 10] },
+  "xai/grok-imagine-video":       { min: 1, max: 15 },
 };
 
+// In-memory cache of live capabilities and pricing from the API
+let _liveCapabilities = {};
+let _videoPricing = {}; // modelId -> price per second (number)
+
+export function getLiveCapabilities() { return _liveCapabilities; }
+export function getVideoPricePerSec(modelId) { return _videoPricing[modelId] || null; }
+
 export function snapDuration(duration, modelId) {
-  const caps = VIDEO_MODEL_CAPABILITIES[modelId];
-  if (!caps?.durations?.length) return duration;
-  if (caps.durations.includes(Number(duration))) return Number(duration);
-  return caps.durations.reduce((best, d) =>
-    Math.abs(d - duration) < Math.abs(best - duration) ? d : best
-  );
+  const caps = _liveCapabilities[modelId] || VIDEO_MODEL_CAPABILITIES[modelId];
+  if (!caps) return Number(duration);
+  const d = Number(duration);
+  if (caps.durations) {
+    if (caps.durations.includes(d)) return d;
+    return caps.durations.reduce((best, v) =>
+      Math.abs(v - d) < Math.abs(best - d) ? v : best
+    );
+  }
+  if (caps.min != null && caps.max != null) {
+    return Math.max(caps.min, Math.min(caps.max, d));
+  }
+  return d;
 }
 
 class OpenRouterError extends Error {
@@ -129,7 +150,94 @@ export async function listVideoModels({ apiKey }) {
     method: "GET",
     headers: headers(apiKey)
   });
-  return handleResponse(res);
+  const json = await handleResponse(res);
+  // Cache live capabilities and pricing from API response
+  const liveMap = {};
+  const priceMap = {};
+  for (const m of json.data || []) {
+    if (!m.id) continue;
+    if (Array.isArray(m.supported_durations) && m.supported_durations.length) {
+      liveMap[m.id] = { durations: m.supported_durations };
+    } else if (m.min_duration != null || m.max_duration != null) {
+      liveMap[m.id] = { min: m.min_duration ?? 1, max: m.max_duration ?? 60 };
+    }
+    const pps = parseFloat(m.pricing?.video || m.pricing?.per_second || 0);
+    if (pps) priceMap[m.id] = pps;
+  }
+  if (Object.keys(liveMap).length) _liveCapabilities = liveMap;
+  if (Object.keys(priceMap).length) _videoPricing = priceMap;
+  return json;
+}
+
+function fmt1M(val) {
+  const n = parseFloat(val);
+  if (!n || isNaN(n)) return null;
+  const per1M = n * 1_000_000;
+  return per1M >= 1 ? `$${per1M.toFixed(2)}` : `$${per1M.toFixed(3)}`;
+}
+
+export async function listTextModels({ apiKey }) {
+  const res = await fetch(`${BASE_URL}/models`, { headers: headers(apiKey) });
+  const json = await handleResponse(res);
+  return (json.data || [])
+    .filter(m => {
+      const mod = m.architecture?.modality || "";
+      return mod.includes("->text") && !mod.includes("->image") && !mod.includes("->audio");
+    })
+    .map(m => {
+      const p = m.pricing || {};
+      const inP = fmt1M(p.prompt);
+      const outP = fmt1M(p.completion);
+      const priceLabel = inP && outP ? `${inP} / ${outP} per M` : inP ? `${inP}/M` : null;
+      return {
+        id: m.id,
+        name: m.name || m.id,
+        contextK: m.context_length ? Math.round(m.context_length / 1000) : null,
+        priceLabel,
+        pricing: p
+      };
+    })
+    .sort((a, b) => {
+      const pa = parseFloat(a.pricing?.prompt || "9999");
+      const pb = parseFloat(b.pricing?.prompt || "9999");
+      return pa - pb;
+    });
+}
+
+export async function listImageModels({ apiKey }) {
+  const res = await fetch(`${BASE_URL}/models`, { headers: headers(apiKey) });
+  const json = await handleResponse(res);
+  return (json.data || [])
+    .filter(m => {
+      const mod = (m.architecture?.modality || "").toLowerCase();
+      // Include any model that can output images
+      return mod.includes("->image") || mod.includes("image+") ||
+             (mod.includes("image") && mod.includes("->"));
+    })
+    .map(m => {
+      const p = m.pricing || {};
+      const imgP = parseFloat(p.image);
+      const priceLabel = imgP ? `$${imgP.toFixed(4)}/img` : null;
+      return { id: m.id, name: m.name || m.id, priceLabel, pricing: p };
+    })
+    .sort((a, b) => {
+      const pa = parseFloat(a.pricing?.image || "9999");
+      const pb = parseFloat(b.pricing?.image || "9999");
+      return pa - pb;
+    });
+}
+
+function withTimeout(promise, ms, label) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      controller.signal.addEventListener("abort", () =>
+        reject(new OpenRouterError(`Zeitüberschreitung: ${label} (>${Math.round(ms / 1000)}s)`, 408))
+      )
+    )
+  ]).finally(() => clearTimeout(timer));
 }
 
 export async function submitVideoJob({
@@ -155,27 +263,29 @@ export async function submitVideoJob({
   if (seed != null) body.seed = seed;
   if (negativePrompt) body.negative_prompt = negativePrompt;
 
-  const res = await fetch(`${BASE_URL}/videos`, {
-    method: "POST",
-    headers: headers(apiKey),
-    body: JSON.stringify(body)
-  });
+  const res = await withTimeout(
+    fetch(`${BASE_URL}/videos`, { method: "POST", headers: headers(apiKey), body: JSON.stringify(body) }),
+    45_000,
+    "Video-Job einreichen"
+  );
   return handleResponse(res);
 }
 
 export async function getVideoJobStatus({ apiKey, jobId }) {
-  const res = await fetch(`${BASE_URL}/videos/${jobId}`, {
-    method: "GET",
-    headers: headers(apiKey)
-  });
+  const res = await withTimeout(
+    fetch(`${BASE_URL}/videos/${jobId}`, { method: "GET", headers: headers(apiKey) }),
+    20_000,
+    "Job-Status abrufen"
+  );
   return handleResponse(res);
 }
 
 export async function downloadVideoContent({ apiKey, jobId, index = 0 }) {
-  const res = await fetch(`${BASE_URL}/videos/${jobId}/content?index=${index}`, {
-    method: "GET",
-    headers: headers(apiKey)
-  });
+  const res = await withTimeout(
+    fetch(`${BASE_URL}/videos/${jobId}/content?index=${index}`, { method: "GET", headers: headers(apiKey) }),
+    120_000,
+    "Video herunterladen"
+  );
   if (!res.ok) {
     const text = await res.text();
     throw new OpenRouterError(`Video-Download fehlgeschlagen (${res.status})`, res.status, text);

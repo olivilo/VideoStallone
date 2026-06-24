@@ -86,12 +86,24 @@ function CastCard({ entry, isGlobal, workspaceRoot, folder, imageModel, textMode
     finally { setBusy(false); }
   }
 
+  async function handleSetReferencePhoto(photoPath) {
+    setBusy(true); setError("");
+    try {
+      const fn = isGlobal
+        ? () => api.setGlobalCastReferencePhoto(entry.id, photoPath)
+        : () => api.setProjectCastReferencePhoto(workspaceRoot, folder, entry.id, photoPath);
+      const { entry: updated } = await fn();
+      onUpdated(updated);
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
+
   async function handleGenerateReference() {
     setBusy(true); setBusyLabel("Generiere Referenzbild..."); setError("");
     try {
       const fn = isGlobal
-        ? () => api.generateGlobalCastReference(entry.id, imageModel)
-        : () => api.generateProjectCastReference(workspaceRoot, folder, entry.id, imageModel);
+        ? () => api.generateGlobalCastReference(entry.id, imageModel, draft)
+        : () => api.generateProjectCastReference(workspaceRoot, folder, entry.id, imageModel, draft);
       const { entry: updated } = await fn();
       onUpdated(updated);
     } catch (e) { setError(e.message); }
@@ -102,11 +114,10 @@ function CastCard({ entry, isGlobal, workspaceRoot, folder, imageModel, textMode
     setBusy(true); setBusyLabel("Erstelle KI-Beschreibung..."); setError("");
     try {
       const fn = isGlobal
-        ? () => api.generateGlobalCastDescription(entry.id, textModel)
-        : () => api.generateProjectCastDescription(workspaceRoot, folder, entry.id, textModel);
+        ? () => api.generateGlobalCastDescription(entry.id, textModel, draft)
+        : () => api.generateProjectCastDescription(workspaceRoot, folder, entry.id, textModel, draft);
       const { entry: updated } = await fn();
       onUpdated(updated);
-      setDraft(prev => ({ ...prev, aiDescription: updated.aiDescription }));
     } catch (e) { setError(e.message); }
     finally { setBusy(false); setBusyLabel(""); }
   }
@@ -212,14 +223,28 @@ function CastCard({ entry, isGlobal, workspaceRoot, folder, imageModel, textMode
             </div>
             {(entry.photos || []).length > 0 && (
               <div className="cast-photos-grid">
-                {entry.photos.map((p, i) => (
-                  <div key={i} className="cast-photo-item">
-                    <img src={assetUrl(p)} alt={`Foto ${i + 1}`} className="cast-photo-thumb" />
-                    <button className="cast-photo-delete" onClick={() => handleDeletePhoto(p)} disabled={busy} title="Löschen">×</button>
-                  </div>
-                ))}
+                {entry.photos.map((p, i) => {
+                  const isRef = entry.referenceImagePath && entry.referenceImagePath.includes(p.replace("photos/", "").split("_").slice(1).join("_").split(".")[0]);
+                  const isDirectRef = entry.referenceImagePath === p;
+                  return (
+                    <div key={i} className={`cast-photo-item ${isDirectRef ? "cast-photo-is-ref" : ""}`}>
+                      <img src={assetUrl(p)} alt={`Foto ${i + 1}`} className="cast-photo-thumb" />
+                      <div className="cast-photo-actions">
+                        <button
+                          className="cast-photo-pin"
+                          onClick={() => handleSetReferencePhoto(p)}
+                          disabled={busy}
+                          title="Als Referenzbild verwenden"
+                        >📌</button>
+                        <button className="cast-photo-delete" onClick={() => handleDeletePhoto(p)} disabled={busy} title="Löschen">×</button>
+                      </div>
+                      {isDirectRef && <span className="cast-photo-ref-badge">Referenz</span>}
+                    </div>
+                  );
+                })}
               </div>
             )}
+            <p className="hint-text small">📌 = direkt als Referenzbild setzen (kein KI-Schritt nötig). Auch ohne Referenzbild wird das erste Foto automatisch als visuelle Vorlage genutzt.</p>
           </div>
 
           <div className="cast-reference-section">

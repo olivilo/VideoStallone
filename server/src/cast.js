@@ -81,13 +81,18 @@ export function buildCastInjection(entries, sceneText = "") {
 
 export function getCastReferenceUrls(entries, castDir) {
   return entries
-    .filter(e => e.referenceImagePath && e.injectAlways)
+    .filter(e => e.injectAlways)
     .map(e => {
-      const absPath = path.join(castDir, e.referenceImagePath);
+      // Prefer explicit reference image, fall back to first uploaded photo
+      const imgPath = e.referenceImagePath || e.photos?.[0] || null;
+      if (!imgPath) return null;
+      const absPath = path.join(castDir, imgPath);
       if (!fs.existsSync(absPath)) return null;
       const buf = fs.readFileSync(absPath);
-      return `data:image/png;base64,${buf.toString("base64")}`;
+      const ext = path.extname(absPath).toLowerCase().slice(1);
+      const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+      return `data:${mime};base64,${buf.toString("base64")}`;
     })
     .filter(Boolean)
-    .slice(0, 3); // max 3 reference images per generation
+    .slice(0, 3);
 }

@@ -20,9 +20,13 @@ import {
   chatCompletion,
   generateImage,
   listVideoModels,
+  listTextModels,
+  listImageModels,
   submitVideoJob,
   OpenRouterError,
   VIDEO_MODEL_CAPABILITIES,
+  getLiveCapabilities,
+  getVideoPricePerSec,
   snapDuration
 } from "./openrouter.js";
 import {
@@ -68,7 +72,7 @@ import {
   parseScenePlanningResponse,
   buildSceneRefinementMessages
 } from "./scenePrompts.js";
-import { startVideoPolling } from "./videoJobManager.js";
+import { startVideoPolling, isPollingActive } from "./videoJobManager.js";
 
 export const router = express.Router();
 
@@ -156,6 +160,24 @@ router.post("/projects", wrapAsync(async (req, res) => {
 router.get("/projects/:folder", wrapAsync(async (req, res) => {
   const { workspaceRoot } = req.query;
   const project = loadProject(workspaceRoot, req.params.folder);
+  const cfg = loadConfig();
+
+  // Resume polling for any jobs that were running before a server restart
+  if (cfg.openrouterApiKey) {
+    for (const scene of project.scenes || []) {
+      if ((scene.videoStatus === "generating" || scene.videoStatus === "queued") &&
+          scene.videoJobId && !isPollingActive(req.params.folder, scene.id)) {
+        startVideoPolling({
+          apiKey: cfg.openrouterApiKey,
+          workspaceRoot: resolveSafePath(workspaceRoot),
+          folder: req.params.folder,
+          sceneId: scene.id,
+          jobId: scene.videoJobId
+        });
+      }
+    }
+  }
+
   res.json({ project });
 }));
 
@@ -409,12 +431,50 @@ router.post("/projects/:folder/scenes/:sceneId/storyboard/approve", wrapAsync(as
   res.json({ project });
 }));
 
+/* ---------------- Alle Szenendauern anpassen ---------------- */
+
+router.post("/projects/:folder/snap-durations", wrapAsync(async (req, res) => {
+  const { workspaceRoot } = req.query;
+  const { model } = req.body;
+  if (!model) return res.status(400).json({ error: "model fehlt" });
+
+  const live = getLiveCapabilities();
+  const caps = live[model] || VIDEO_MODEL_CAPABILITIES[model];
+  if (!caps) {
+    return res.status(400).json({ error: `Keine Dauer-Informationen für Modell "${model}" bekannt. Bitte zuerst die Modell-Liste laden.` });
+  }
+
+  const project = loadProject(workspaceRoot, req.params.folder);
+  let changed = 0;
+  const details = [];
+  for (const scene of project.scenes) {
+    const snapped = snapDuration(scene.durationSeconds, model);
+    if (snapped !== scene.durationSeconds) {
+      details.push({ scene: scene.order, from: scene.durationSeconds, to: snapped });
+      scene.durationSeconds = snapped;
+      changed++;
+    }
+  }
+  saveProject(workspaceRoot, req.params.folder, project);
+  res.json({ project, changed, details });
+}));
+
 /* ---------------- Video-Modelle Liste ---------------- */
 
 router.get("/video-models", wrapAsync(async (req, res) => {
   const cfg = loadConfig();
   const data = await listVideoModels({ apiKey: cfg.openrouterApiKey });
   res.json(data);
+}));
+
+router.get("/text-models", wrapAsync(async (req, res) => {
+  const cfg = loadConfig();
+  res.json({ models: await listTextModels({ apiKey: cfg.openrouterApiKey }) });
+}));
+
+router.get("/image-models", wrapAsync(async (req, res) => {
+  const cfg = loadConfig();
+  res.json({ models: await listImageModels({ apiKey: cfg.openrouterApiKey }) });
 }));
 
 /* ---------------- Video-Generierung pro Szene ---------------- */
@@ -493,6 +553,8 @@ router.post("/projects/:folder/scenes/:sceneId/video", wrapAsync(async (req, res
   scene.videoJobProgress = null;
   scene.hasAudio = Boolean(generateAudio ?? project.settings.defaultGenerateAudio);
   scene.videoError = null;
+  const pps = getVideoPricePerSec(videoModel);
+  scene.videoCost = pps ? Math.round(pps * snapped * 10000) / 10000 : null;
   project.settings.videoModel = videoModel;
   saveProject(workspaceRoot, req.params.folder, project);
 
@@ -549,7 +611,8 @@ router.post("/projects/:folder/scenes/:sceneId/video/restore-variant", wrapAsync
 /* ---------------- Video-Modell Capabilities ---------------- */
 
 router.get("/video-models/capabilities", (req, res) => {
-  res.json(VIDEO_MODEL_CAPABILITIES);
+  // Live capabilities override the hardcoded fallback map
+  res.json({ ...VIDEO_MODEL_CAPABILITIES, ...getLiveCapabilities() });
 });
 
 /* ---------------- Batch: Alle Szenen generieren ---------------- */
