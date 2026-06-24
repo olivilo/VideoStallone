@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "start": "node src/index.js",
+    "predev": "lsof -ti :4123 | xargs kill -9 2>/dev/null; true",
     "dev": "node --watch src/index.js"
   },
   "dependencies": {

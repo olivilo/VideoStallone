@@ -306,6 +306,9 @@ export default function SceneCard({
                 {scene.storyboardStatus === "generating" && <span className="spinner" />}
                 {sbBadge.text}
               </span>
+              {scene.storyboardStatus === "error" && scene.storyboardError && (
+                <p className="error-text">{scene.storyboardError}</p>
+              )}
               <div className="pipeline-step-actions">
                 {(scene.storyboardStatus === "pending" || scene.storyboardStatus === "error") && (
                   <button className="btn-secondary" onClick={handleGenerateStoryboard} disabled={busy}>
@@ -321,6 +324,11 @@ export default function SceneCard({
                       ✅ Storyboard freigeben
                     </button>
                   </>
+                )}
+                {scene.storyboardStatus === "approved" && (
+                  <button className="btn-tertiary btn-small" onClick={handleGenerateStoryboard} disabled={busy}>
+                    🎲 Neues Storyboard-Bild
+                  </button>
                 )}
               </div>
             </div>
@@ -356,7 +364,9 @@ export default function SceneCard({
               {scene.videoError && <p className="error-text">{scene.videoError}</p>}
 
               <div className="pipeline-step-actions">
-                {scene.storyboardStatus === "approved" && (scene.videoStatus === "idle" || scene.videoStatus === "error") && (
+                {/* Video generieren: storyboard muss approved oder ready+image sein, video muss idle/error */}
+                {(scene.storyboardStatus === "approved" || (scene.storyboardStatus === "ready" && scene.storyboardImagePath)) &&
+                 (scene.videoStatus === "idle" || scene.videoStatus === "error") && (
                   <>
                     <label className="checkbox-row">
                       <input

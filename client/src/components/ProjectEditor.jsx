@@ -10,20 +10,23 @@ import { setLiveCapabilities } from "../videoModelCapabilities";
 
 // Preisangaben pro Sekunde (Stand Juni 2026, Quelle: OpenRouter)
 const VIDEO_PRICING_MAP = {
-  "google/veo-3.1":              { price: "$0.20–0.60/s", badge: "🏆 Premium" },
-  "google/veo-3.1-fast":         { price: "$0.08–0.30/s", badge: "⚡ Empfohlen" },
-  "google/veo-3.1-lite":         { price: "$0.03–0.08/s", badge: "💰 Günstig" },
-  "kuaishou/kling-v3-pro":       { price: "$0.112/s · $0.168/s mit Audio", badge: "" },
-  "kuaishou/kling-v3-standard":  { price: "$0.084/s · $0.126/s mit Audio", badge: "" },
-  "kuaishou/kling-video-o1":     { price: "$0.112/s", badge: "" },
-  "minimax/hailuo-2.3":          { price: "$0.0817/s", badge: "" },
-  "alibaba/wan-2.7":             { price: "$0.10/s", badge: "" },
-  "alibaba/wan-2.6":             { price: "$0.04–0.15/s", badge: "💰 Günstig" },
-  "openai/sora-2-pro":           { price: "$0.30–0.50/s", badge: "🏆 Premium" },
-  "xai/grok-imagine-video":      { price: "$0.05/s (480p) · $0.07/s (720p)", badge: "" },
-  "bytedance/seedance-2.0":      { price: "nach Video-Token", badge: "💰 Günstig" },
-  "bytedance/seedance-2.0-fast": { price: "nach Video-Token", badge: "💰 Günstig" },
-  "bytedance/seedance-1.5-pro":  { price: "nach Video-Token (mit Audio)", badge: "" },
+  "google/veo-3.1":              { price: "$0.20–0.60/s", pricePerSec: 0.40,  badge: "🏆 Premium" },
+  "google/veo-3.1-fast":         { price: "$0.08–0.30/s", pricePerSec: 0.19,  badge: "⚡ Empfohlen" },
+  "google/veo-3.1-lite":         { price: "$0.03–0.08/s", pricePerSec: 0.055, badge: "💰 Günstig" },
+  "kuaishou/kling-v3-pro":       { price: "$0.112/s · $0.168/s mit Audio", pricePerSec: 0.112, badge: "" },
+  "kuaishou/kling-v3-standard":  { price: "$0.084/s · $0.126/s mit Audio", pricePerSec: 0.084, badge: "" },
+  "kuaishou/kling-video-o1":     { price: "$0.112/s",                        pricePerSec: 0.112, badge: "" },
+  "kwaivgi/kling-v3.0-pro":      { price: "$0.112/s · $0.168/s mit Audio", pricePerSec: 0.112, badge: "" },
+  "kwaivgi/kling-v3.0-std":      { price: "$0.084/s · $0.126/s mit Audio", pricePerSec: 0.084, badge: "" },
+  "minimax/hailuo-2.3":          { price: "$0.0817/s",                       pricePerSec: 0.0817, badge: "" },
+  "alibaba/wan-2.7":             { price: "$0.10/s",                         pricePerSec: 0.10,  badge: "" },
+  "alibaba/wan-2.6":             { price: "$0.04–0.15/s",                    pricePerSec: 0.09,  badge: "💰 Günstig" },
+  "openai/sora-2-pro":           { price: "$0.30–0.50/s",                    pricePerSec: 0.40,  badge: "🏆 Premium" },
+  "xai/grok-imagine-video":      { price: "$0.05/s (480p) · $0.07/s (720p)", pricePerSec: 0.06, badge: "" },
+  "x-ai/grok-imagine-video":     { price: "$0.05/s (480p) · $0.07/s (720p)", pricePerSec: 0.06, badge: "" },
+  "bytedance/seedance-2.0":      { price: "nach Video-Token",                 pricePerSec: 0,    badge: "💰 Günstig" },
+  "bytedance/seedance-2.0-fast": { price: "nach Video-Token",                 pricePerSec: 0,    badge: "💰 Günstig" },
+  "bytedance/seedance-1.5-pro":  { price: "nach Video-Token (mit Audio)",     pricePerSec: 0,    badge: "" },
 };
 
 
@@ -99,6 +102,7 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
             priceLabel = `$${m.pricing.per_second}/s`;
           } else if (VIDEO_PRICING_MAP[m.id]) {
             priceLabel = VIDEO_PRICING_MAP[m.id].price;
+            pricePerSec = VIDEO_PRICING_MAP[m.id].pricePerSec || 0;
           }
           return { id: m.id, name: m.name || m.id, priceLabel, pricePerSec };
         }));

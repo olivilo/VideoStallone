@@ -1,3 +1,5 @@
+import { snapDuration } from "../videoModelCapabilities";
+
 export default function CostBar({ project, videoModels }) {
   if (!project?.scenes?.length) return null;
 
@@ -13,12 +15,18 @@ export default function CostBar({ project, videoModels }) {
   const pendingScenes = project.scenes.filter(
     s => !["approved", "ready", "queued", "generating"].includes(s.videoStatus)
   );
+  const videoModelId = project.settings.videoModel;
   const estimatedCost = pricePerSec
-    ? pendingScenes.reduce((sum, s) => sum + (s.durationSeconds || 6) * pricePerSec, 0)
+    ? pendingScenes.reduce((sum, s) => {
+        const d = snapDuration(s.durationSeconds || 6, videoModelId);
+        return sum + d * pricePerSec;
+      }, 0)
     : null;
 
   const totalDuration = project.scenes.reduce((sum, s) => sum + (s.durationSeconds || 6), 0);
-  const pendingDuration = pendingScenes.reduce((sum, s) => sum + (s.durationSeconds || 6), 0);
+  const pendingDuration = pendingScenes.reduce((sum, s) => {
+    return sum + snapDuration(s.durationSeconds || 6, videoModelId);
+  }, 0);
 
   return (
     <div className="cost-bar">

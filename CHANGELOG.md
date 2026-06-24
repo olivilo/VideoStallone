@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.1 — 2026-06-24
+
+### Bug fixes
+- Fixed new-seed flow: generating a new storyboard image while a video is already approved no longer blocks video re-generation. Video generation now also works when the storyboard is in "ready" state (image exists but not yet re-approved).
+- Added "🎲 Neues Storyboard-Bild" button on approved storyboards so users can regenerate the image without resetting the scene to pending.
+- Fixed cost estimation showing "kein Preis bekannt" for most models: `VIDEO_PRICING_MAP` now includes numeric `pricePerSec` values used as fallback when the API returns no pricing. Estimates now also use the snapped (model-valid) duration instead of the raw stored value.
+- Fixed `push-global` cast route crashing when the global `references/` directory did not yet exist.
+- Cast import now copies photos in addition to the reference image, so imported characters have their visual data in the new project.
+- Fixed `imageModel` with `~` prefix (e.g. `~google/gemini-flash-latest`) causing all storyboard generations to fail silently. Both the per-scene and batch routes now strip invalid leading characters.
+- Storyboard error messages are now saved to `scene.storyboardError` and displayed in the scene card so the root cause is visible instead of just a red badge.
+- Added `predev` npm script that automatically kills any leftover process on port 4123 before starting — `npm run dev` no longer fails with `EADDRINUSE` after a background process was left running.
+
 ## v0.2.0 — 2026-06-24
 
 ### Model selection overhaul

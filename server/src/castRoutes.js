@@ -309,24 +309,40 @@ castRouter.post("/projects/:folder/cast/import/:globalId", wrapAsync(async (req,
     return res.status(400).json({ error: "Bereits importiert" });
   }
 
+  const globalDir = getGlobalCastDir();
+  const castDir = getProjectCastDir(workspaceRoot, req.params.folder);
+
   // Copy reference image if present
   let newRefPath = null;
   if (globalEntry.referenceImagePath) {
-    const srcPath = path.join(getGlobalCastDir(), globalEntry.referenceImagePath);
+    const srcPath = path.join(globalDir, globalEntry.referenceImagePath);
     if (fs.existsSync(srcPath)) {
-      const castDir = getProjectCastDir(workspaceRoot, req.params.folder);
       const refDir = path.join(castDir, "references");
       if (!fs.existsSync(refDir)) fs.mkdirSync(refDir, { recursive: true });
-      const destName = `${globalEntry.id}_imported_ref.png`;
+      const ext = path.extname(globalEntry.referenceImagePath) || ".png";
+      const destName = `${globalEntry.id}_imported_ref${ext}`;
       fs.copyFileSync(srcPath, path.join(refDir, destName));
       newRefPath = `references/${destName}`;
+    }
+  }
+
+  // Copy photos
+  const copiedPhotos = [];
+  for (const photoRel of globalEntry.photos || []) {
+    const srcPath = path.join(globalDir, photoRel);
+    if (fs.existsSync(srcPath)) {
+      const photosDir = path.join(castDir, "photos");
+      if (!fs.existsSync(photosDir)) fs.mkdirSync(photosDir, { recursive: true });
+      const destName = `imported_${path.basename(photoRel)}`;
+      fs.copyFileSync(srcPath, path.join(photosDir, destName));
+      copiedPhotos.push(`photos/${destName}`);
     }
   }
 
   const newEntry = newCastEntry({
     ...globalEntry,
     id: uuidv4(),
-    photos: [],
+    photos: copiedPhotos,
     referenceImagePath: newRefPath,
     sourceGlobalId: req.params.globalId,
     createdAt: new Date().toISOString(),
@@ -354,6 +370,7 @@ castRouter.post("/projects/:folder/cast/:id/push-global", wrapAsync(async (req, 
     const srcPath = path.join(castDir, entry.referenceImagePath);
     if (fs.existsSync(srcPath)) {
       const refDir = path.join(globalDir, "references");
+      if (!fs.existsSync(refDir)) fs.mkdirSync(refDir, { recursive: true });
       const destName = `${entry.sourceGlobalId || entry.id}_ref.png`;
       fs.copyFileSync(srcPath, path.join(refDir, destName));
       newRefPath = `references/${destName}`;

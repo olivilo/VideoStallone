@@ -337,7 +337,9 @@ router.post("/projects/:folder/scenes/:sceneId/storyboard", wrapAsync(async (req
   const scene = project.scenes.find((s) => s.id === req.params.sceneId);
   if (!scene) return res.status(404).json({ error: "Szene nicht gefunden" });
 
-  const imageModel = model || project.settings.imageModel || cfg.defaultModels.image;
+  const rawModel = model || project.settings.imageModel || cfg.defaultModels.image;
+  const imageModel = rawModel ? rawModel.replace(/^[~\s]+/, "").trim() : rawModel;
+  if (!imageModel) return res.status(400).json({ error: "Kein Bild-Modell ausgewählt." });
   const seed = randomSeed();
 
   // Save current image to variants before overwriting
@@ -389,6 +391,7 @@ router.post("/projects/:folder/scenes/:sceneId/storyboard", wrapAsync(async (req
     res.json({ project });
   } catch (err) {
     scene.storyboardStatus = "error";
+    scene.storyboardError = err.message || "Unbekannter Fehler";
     saveProject(workspaceRoot, req.params.folder, project);
     throw err;
   }
@@ -486,8 +489,10 @@ router.post("/projects/:folder/scenes/:sceneId/video", wrapAsync(async (req, res
   const project = loadProject(workspaceRoot, req.params.folder);
   const scene = project.scenes.find((s) => s.id === req.params.sceneId);
   if (!scene) return res.status(404).json({ error: "Szene nicht gefunden" });
-  if (scene.storyboardStatus !== "approved") {
-    return res.status(400).json({ error: "Storyboard muss erst freigegeben werden, bevor das Video generiert wird." });
+  const canGenerateVideo = scene.storyboardStatus === "approved" ||
+    (scene.storyboardStatus === "ready" && scene.storyboardImagePath);
+  if (!canGenerateVideo) {
+    return res.status(400).json({ error: "Storyboard-Bild muss zuerst generiert und freigegeben werden." });
   }
 
   const videoModel = model || project.settings.videoModel || cfg.defaultModels.video;
@@ -624,7 +629,8 @@ router.post("/projects/:folder/generate-all", wrapAsync(async (req, res) => {
   const cfg = loadConfig();
   let project = loadProject(workspaceRoot, folder);
 
-  const effectiveImageModel = project.settings.imageModel || cfg.defaultModels.image;
+  const rawImageModel = project.settings.imageModel || cfg.defaultModels.image;
+  const effectiveImageModel = rawImageModel ? rawImageModel.replace(/^[~\s]+/, "").trim() : rawImageModel;
   const effectiveVideoModel = project.settings.videoModel || cfg.defaultModels.video;
 
   if (!effectiveVideoModel) {
@@ -694,7 +700,7 @@ router.post("/projects/:folder/generate-all", wrapAsync(async (req, res) => {
         console.error(`Storyboard-Fehler Szene ${scene.order}:`, err.message);
         project = loadProject(workspaceRoot, folder);
         const s = project.scenes.find((x) => x.id === scene.id);
-        if (s) { s.storyboardStatus = "error"; saveProject(workspaceRoot, folder, project); }
+        if (s) { s.storyboardStatus = "error"; s.storyboardError = err.message || "Unbekannter Fehler"; saveProject(workspaceRoot, folder, project); }
       }
     }
 
