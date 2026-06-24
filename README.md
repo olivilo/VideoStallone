@@ -6,6 +6,8 @@ Turn a text idea into a full storyboard, generate images for each scene, produce
 
 This is a fun personal project, open for anyone to use, fork, or build on.
 
+> **Work in progress.** This project is under active development — things may break, APIs may change, and features may be incomplete. Use at your own risk.
+
 ---
 
 ## What it does
