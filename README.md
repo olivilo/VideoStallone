@@ -19,6 +19,9 @@ This is a fun personal project, open for anyone to use, fork, or build on.
 
 ### Extra features
 
+- **11 languages** — Full UI in English, German, Serbian (Latin), French, Spanish, Portuguese, Russian, Chinese (Simplified & Traditional), Hindi and Arabic (with right-to-left support). Includes a searchable in-app FAQ per language.
+- **Light / Dark theme** — Toggle in the header; choice is remembered.
+- **Local image generation (ComfyUI)** — Optionally generate storyboards on your own machine via a running [ComfyUI](https://github.com/comfyanonymous/ComfyUI) instance instead of the cloud — free, switchable per project, with OpenRouter as a one-click fallback.
 - **Cast & Entities** — Create persistent characters and entities (people, vehicles, objects) with reference photos and AI-generated descriptions. They are automatically injected into every scene's prompt for visual consistency.
 - **Global Library** — Save characters/entities globally and import them into any project.
 - **Style system** — Set a visual style (Cinematic, Comic, Anime, Oil Painting, Watercolor, 3D Render) per film or per individual scene.

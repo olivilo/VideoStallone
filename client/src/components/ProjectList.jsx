@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 
 export default function ProjectList({ workspaceRoot, onOpenProject }) {
+  const { t, i18n } = useTranslation();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -45,7 +47,7 @@ export default function ProjectList({ workspaceRoot, onOpenProject }) {
   if (!workspaceRoot) {
     return (
       <div className="empty-state">
-        <p>Bitte wähle zuerst einen Arbeitsordner in den Einstellungen.</p>
+        <p>{t("projects.emptyNoWorkspace")}</p>
       </div>
     );
   }
@@ -53,35 +55,37 @@ export default function ProjectList({ workspaceRoot, onOpenProject }) {
   return (
     <div className="project-list">
       <div className="project-list-header">
-        <h2>Projekte</h2>
-        <p className="hint-text">Workspace: <code>{workspaceRoot}</code></p>
+        <h2>{t("projects.title")}</h2>
+        <p className="hint-text">{t("projects.workspaceLabel")} <code>{workspaceRoot}</code></p>
       </div>
 
       <div className="new-project-row">
         <input
           type="text"
-          placeholder="Name des neuen Filmprojekts..."
+          placeholder={t("projects.newPlaceholder")}
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
         />
         <button className="btn-primary" onClick={handleCreate} disabled={creating}>
-          + Neues Projekt
+          {t("projects.create")}
         </button>
       </div>
 
       {error && <div className="error-banner">{error}</div>}
       {loading ? (
-        <p>Lade Projekte...</p>
+        <p>{t("projects.loading")}</p>
       ) : projects.length === 0 ? (
-        <div className="empty-state">Noch keine Projekte. Lege oben dein erstes Projekt an.</div>
+        <div className="empty-state">{t("projects.empty")}</div>
       ) : (
         <div className="project-grid">
           {projects.map((p) => (
             <div key={p.folder} className="project-card" onClick={() => onOpenProject(p.folder)}>
               <h3>{p.name}</h3>
-              <p className="hint-text">{p.sceneCount} Szene{p.sceneCount === 1 ? "" : "n"}</p>
-              <p className="hint-text small">Zuletzt geändert: {new Date(p.updatedAt).toLocaleString("de-DE")}</p>
+              <p className="hint-text">{t("projects.sceneCount", { count: p.sceneCount })}</p>
+              <p className="hint-text small">
+                {t("projects.updatedAt", { date: new Date(p.updatedAt).toLocaleString(i18n.language) })}
+              </p>
             </div>
           ))}
         </div>

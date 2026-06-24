@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 
 export default function FolderPicker({ initialPath, onSelect, onCancel }) {
+  const { t } = useTranslation();
   const [currentPath, setCurrentPath] = useState(initialPath || "");
   const [folders, setFolders] = useState([]);
   const [parent, setParent] = useState(null);
@@ -45,7 +47,7 @@ export default function FolderPicker({ initialPath, onSelect, onCancel }) {
   return (
     <div className="modal-overlay">
       <div className="modal folder-picker">
-        <h3>Ordner auswählen</h3>
+        <h3>{t("folderPicker.title")}</h3>
 
         <div className="folder-path-bar">
           <input
@@ -53,9 +55,9 @@ export default function FolderPicker({ initialPath, onSelect, onCancel }) {
             value={currentPath}
             onChange={(e) => setCurrentPath(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && load(currentPath)}
-            placeholder="Pfad eingeben oder navigieren..."
+            placeholder={t("folderPicker.pathPlaceholder")}
           />
-          <button onClick={() => load(currentPath)} className="btn-secondary">Gehe zu</button>
+          <button onClick={() => load(currentPath)} className="btn-secondary">{t("folderPicker.go")}</button>
         </div>
 
         {error && <div className="error-banner">{error}</div>}
@@ -63,13 +65,13 @@ export default function FolderPicker({ initialPath, onSelect, onCancel }) {
         <div className="folder-list">
           {parent && (
             <div className="folder-item folder-item-up" onClick={() => load(parent)}>
-              ⬆️ .. (übergeordneter Ordner)
+              {t("folderPicker.up")}
             </div>
           )}
           {loading ? (
-            <div className="folder-item-loading">Lade...</div>
+            <div className="folder-item-loading">{t("folderPicker.loading")}</div>
           ) : folders.length === 0 ? (
-            <div className="folder-item-empty">Keine Unterordner</div>
+            <div className="folder-item-empty">{t("folderPicker.empty")}</div>
           ) : (
             folders.map((f) => (
               <div key={f} className="folder-item" onClick={() => load(`${currentPath}/${f}`)}>
@@ -84,24 +86,24 @@ export default function FolderPicker({ initialPath, onSelect, onCancel }) {
             <div className="new-folder-row">
               <input
                 type="text"
-                placeholder="Neuer Ordnername"
+                placeholder={t("folderPicker.newNamePlaceholder")}
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
                 autoFocus
               />
-              <button className="btn-secondary" onClick={handleCreateFolder}>Erstellen</button>
-              <button className="btn-tertiary" onClick={() => setShowNewFolder(false)}>Abbrechen</button>
+              <button className="btn-secondary" onClick={handleCreateFolder}>{t("folderPicker.create")}</button>
+              <button className="btn-tertiary" onClick={() => setShowNewFolder(false)}>{t("common.cancel")}</button>
             </div>
           ) : (
-            <button className="btn-tertiary" onClick={() => setShowNewFolder(true)}>+ Neuer Unterordner</button>
+            <button className="btn-tertiary" onClick={() => setShowNewFolder(true)}>{t("folderPicker.newFolder")}</button>
           )}
         </div>
 
         <div className="modal-footer">
-          <button className="btn-tertiary" onClick={onCancel}>Abbrechen</button>
+          <button className="btn-tertiary" onClick={onCancel}>{t("common.cancel")}</button>
           <button className="btn-primary" onClick={() => onSelect(currentPath)}>
-            Diesen Ordner verwenden
+            {t("folderPicker.use")}
           </button>
         </div>
       </div>

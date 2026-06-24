@@ -1,23 +1,24 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { getSupportedDurations, snapDuration } from "../videoModelCapabilities";
 
-const STORYBOARD_LABELS = {
-  pending:    { text: "Storyboard offen",          className: "badge-neutral" },
-  generating: { text: "Generiere Bild...",          className: "badge-progress" },
-  ready:      { text: "Bild bereit – zur Prüfung", className: "badge-review" },
-  approved:   { text: "Storyboard freigegeben ✓",  className: "badge-success" },
-  error:      { text: "Fehler bei Bildgenerierung", className: "badge-error" }
+const STORYBOARD_BADGE = {
+  pending:    { key: "scene.sbPending",    className: "badge-neutral" },
+  generating: { key: "scene.sbGenerating", className: "badge-progress" },
+  ready:      { key: "scene.sbReady",      className: "badge-review" },
+  approved:   { key: "scene.sbApproved",   className: "badge-success" },
+  error:      { key: "scene.sbError",      className: "badge-error" }
 };
 
-const VIDEO_LABELS = {
-  idle:        { text: "Video noch nicht gestartet",  className: "badge-neutral" },
-  submitting:  { text: "Wird gesendet...",             className: "badge-progress" },
-  queued:      { text: "Video-Job eingereiht...",      className: "badge-progress" },
-  generating:  { text: "Video wird generiert...",      className: "badge-progress" },
-  ready:       { text: "Video bereit – zur Prüfung",  className: "badge-review" },
-  approved:    { text: "Video freigegeben ✓",         className: "badge-success" },
-  error:       { text: "Fehler bei Videogenerierung", className: "badge-error" }
+const VIDEO_BADGE = {
+  idle:        { key: "scene.vIdle",       className: "badge-neutral" },
+  submitting:  { key: "scene.vSubmitting", className: "badge-progress" },
+  queued:      { key: "scene.vQueued",     className: "badge-progress" },
+  generating:  { key: "scene.vGenerating", className: "badge-progress" },
+  ready:       { key: "scene.vReady",      className: "badge-review" },
+  approved:    { key: "scene.vApproved",   className: "badge-success" },
+  error:       { key: "scene.vError",      className: "badge-error" }
 };
 
 export default function SceneCard({
@@ -30,6 +31,7 @@ export default function SceneCard({
   onChanged,
   onDelete
 }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(scene);
   const [busy, setBusy] = useState(false);
@@ -148,9 +150,11 @@ export default function SceneCard({
     }
   }
 
-  const sbBadge = STORYBOARD_LABELS[scene.storyboardStatus] || STORYBOARD_LABELS.pending;
+  const sbBadgeDef = STORYBOARD_BADGE[scene.storyboardStatus] || STORYBOARD_BADGE.pending;
+  const sbBadge = { text: t(sbBadgeDef.key), className: sbBadgeDef.className };
   const effectiveVideoStatus = submittingVideo ? "submitting" : scene.videoStatus;
-  const vidBadge = VIDEO_LABELS[effectiveVideoStatus] || VIDEO_LABELS.idle;
+  const vidBadgeDef = VIDEO_BADGE[effectiveVideoStatus] || VIDEO_BADGE.idle;
+  const vidBadge = { text: t(vidBadgeDef.key), className: vidBadgeDef.className };
 
   const supportedDurations = getSupportedDurations(videoModel);
   const snappedDuration = snapDuration(scene.durationSeconds, videoModel);
@@ -177,9 +181,9 @@ export default function SceneCard({
         )}
         <div className="scene-card-actions">
           {!editing && (
-            <button className="btn-icon" title="Bearbeiten" onClick={() => setEditing(true)}>✏️</button>
+            <button className="btn-icon" title={t("scene.editTitle")} onClick={() => setEditing(true)}>✏️</button>
           )}
-          <button className="btn-icon" title="Szene löschen" onClick={() => onDelete(scene.id)}>🗑️</button>
+          <button className="btn-icon" title={t("scene.deleteTitle")} onClick={() => onDelete(scene.id)}>🗑️</button>
         </div>
       </div>
 
@@ -192,11 +196,11 @@ export default function SceneCard({
               alt={scene.title}
             />
           ) : (
-            <div className="storyboard-placeholder">Noch kein Storyboard-Bild</div>
+            <div className="storyboard-placeholder">{t("scene.noStoryboard")}</div>
           )}
           {storyboardVariants.length > 0 && (
             <div className="storyboard-variants">
-              <span className="variants-label">Verlauf:</span>
+              <span className="variants-label">{t("scene.history")}</span>
               {storyboardVariants.slice(0, 4).map((v, idx) => (
                 <button
                   key={idx}
@@ -219,40 +223,40 @@ export default function SceneCard({
         <div className="scene-details">
           {editing ? (
             <>
-              <label>Beschreibung (Video-Prompt)</label>
+              <label>{t("scene.descriptionLabel")}</label>
               <textarea
                 rows={4}
                 value={draft.description}
                 onChange={(e) => setDraft({ ...draft, description: e.target.value })}
               />
-              <label>Storyboard-Prompt (für Standbild)</label>
+              <label>{t("scene.storyboardPromptLabel")}</label>
               <textarea
                 rows={2}
                 value={draft.storyboardPrompt}
                 onChange={(e) => setDraft({ ...draft, storyboardPrompt: e.target.value })}
               />
-              <label>Kamera</label>
+              <label>{t("scene.cameraLabel")}</label>
               <input value={draft.camera} onChange={(e) => setDraft({ ...draft, camera: e.target.value })} />
-              <label>Übergang zur nächsten Szene</label>
+              <label>{t("scene.transitionLabel")}</label>
               <input value={draft.transition} onChange={(e) => setDraft({ ...draft, transition: e.target.value })} />
-              <label>Stil (überschreibt Filmstil)</label>
+              <label>{t("scene.styleLabel")}</label>
               <select
                 value={draft.styleOverride || ""}
                 onChange={(e) => setDraft({ ...draft, styleOverride: e.target.value || null })}
               >
-                <option value="">Filmstil verwenden</option>
-                <option value="cinematic">🎬 Cinematic / Realistisch</option>
-                <option value="comic">💥 Comic Book</option>
-                <option value="anime">🎌 Anime</option>
-                <option value="oil-painting">🖼️ Ölgemälde</option>
-                <option value="watercolor">🎨 Aquarell</option>
-                <option value="3d-render">🖥️ 3D Render / CGI</option>
+                <option value="">{t("styles.useFilm")}</option>
+                <option value="cinematic">{t("styles.cinematic")}</option>
+                <option value="comic">{t("styles.comic")}</option>
+                <option value="anime">{t("styles.anime")}</option>
+                <option value="oil-painting">{t("styles.oilPainting")}</option>
+                <option value="watercolor">{t("styles.watercolor")}</option>
+                <option value="3d-render">{t("styles.render3d")}</option>
               </select>
               <label>
-                Dauer (Sekunden)
+                {t("scene.durationLabel")}
                 {supportedDurations && (
                   <span className="hint-text small" style={{ marginLeft: 8, textTransform: "none", letterSpacing: 0 }}>
-                    erlaubt: {supportedDurations.join(", ")}s
+                    {t("scene.allowed", { list: supportedDurations.join(", ") })}
                   </span>
                 )}
               </label>
@@ -275,23 +279,23 @@ export default function SceneCard({
                 />
               )}
               <div className="scene-edit-actions">
-                <button className="btn-secondary" onClick={() => { setEditing(false); setDraft(scene); }}>Abbrechen</button>
-                <button className="btn-primary" onClick={handleSaveEdit} disabled={busy}>Speichern</button>
+                <button className="btn-secondary" onClick={() => { setEditing(false); setDraft(scene); }}>{t("scene.cancel")}</button>
+                <button className="btn-primary" onClick={handleSaveEdit} disabled={busy}>{t("scene.save")}</button>
               </div>
             </>
           ) : (
             <>
               <p>{scene.description}</p>
-              <p className="scene-meta"><strong>Kamera:</strong> {scene.camera}</p>
-              <p className="scene-meta"><strong>Übergang:</strong> {scene.transition}</p>
+              <p className="scene-meta"><strong>{t("scene.cameraMeta")}</strong> {scene.camera}</p>
+              <p className="scene-meta"><strong>{t("scene.transitionMeta")}</strong> {scene.transition}</p>
               {scene.styleOverride && (
-                <p className="scene-meta"><strong>Stil:</strong> {scene.styleOverride}</p>
+                <p className="scene-meta"><strong>{t("scene.styleMeta")}</strong> {scene.styleOverride}</p>
               )}
               <p className="scene-meta">
-                <strong>Dauer:</strong> {scene.durationSeconds}s
+                <strong>{t("scene.durationMeta")}</strong> {scene.durationSeconds}s
                 {durationMismatch && (
                   <span className="duration-warning">
-                    ⚠️ nicht unterstützt → wird auf {snappedDuration}s angepasst
+                    {t("scene.durationWarning", { snapped: snappedDuration })}
                   </span>
                 )}
               </p>
@@ -312,22 +316,22 @@ export default function SceneCard({
               <div className="pipeline-step-actions">
                 {(scene.storyboardStatus === "pending" || scene.storyboardStatus === "error") && (
                   <button className="btn-secondary" onClick={handleGenerateStoryboard} disabled={busy}>
-                    🖼️ Storyboard-Bild generieren
+                    {t("scene.genStoryboard")}
                   </button>
                 )}
                 {scene.storyboardStatus === "ready" && (
                   <>
                     <button className="btn-secondary" onClick={handleGenerateStoryboard} disabled={busy}>
-                      🎲 Neuer Seed
+                      {t("scene.newSeed")}
                     </button>
                     <button className="btn-primary" onClick={handleApproveStoryboard} disabled={busy}>
-                      ✅ Storyboard freigeben
+                      {t("scene.approveStoryboard")}
                     </button>
                   </>
                 )}
                 {scene.storyboardStatus === "approved" && (
                   <button className="btn-tertiary btn-small" onClick={handleGenerateStoryboard} disabled={busy}>
-                    🎲 Neues Storyboard-Bild
+                    {t("scene.newStoryboard")}
                   </button>
                 )}
               </div>
@@ -340,7 +344,7 @@ export default function SceneCard({
                   {vidBadge.text}
                 </span>
                 {scene.videoSeed != null && !isVideoActive && (
-                  <span className="seed-label">Seed {scene.videoSeed}</span>
+                  <span className="seed-label">{t("scene.seedLabel", { seed: scene.videoSeed })}</span>
                 )}
               </div>
 
@@ -374,12 +378,12 @@ export default function SceneCard({
                         checked={generateAudio}
                         onChange={(e) => setGenerateAudio(e.target.checked)}
                       />
-                      Mit Sound generieren
+                      {t("scene.withSound")}
                     </label>
                     <button className="btn-secondary" onClick={handleGenerateVideo} disabled={busy || !videoModel}>
-                      🎥 Video generieren
+                      {t("scene.genVideo")}
                     </button>
-                    {!videoModel && <p className="hint-text small">Bitte zuerst ein Video-Modell wählen.</p>}
+                    {!videoModel && <p className="hint-text small">{t("scene.selectVideoModel")}</p>}
                   </>
                 )}
                 {scene.videoStatus === "ready" && (
@@ -390,10 +394,10 @@ export default function SceneCard({
                       controls
                     />
                     <button className="btn-secondary" onClick={handleGenerateVideo} disabled={busy}>
-                      🎲 Neuer Seed
+                      {t("scene.newSeed")}
                     </button>
                     <button className="btn-primary" onClick={handleApproveVideo} disabled={busy}>
-                      ✅ Video freigeben
+                      {t("scene.approveVideo")}
                     </button>
                   </>
                 )}
@@ -405,7 +409,7 @@ export default function SceneCard({
                       controls
                     />
                     <button className="btn-secondary btn-small" onClick={handleGenerateVideo} disabled={busy}>
-                      🎲 Neu mit anderem Seed
+                      {t("scene.regenSeed")}
                     </button>
                   </>
                 )}
@@ -413,16 +417,16 @@ export default function SceneCard({
 
               {videoVariants.length > 0 && (
                 <div className="video-variants">
-                  <span className="variants-label">Frühere Videos:</span>
+                  <span className="variants-label">{t("scene.earlierVideos")}</span>
                   {videoVariants.slice(0, 3).map((v, idx) => (
                     <button
                       key={idx}
                       className="btn-tertiary btn-small"
-                      title={`Seed ${v.seed}`}
+                      title={t("scene.seedLabel", { seed: v.seed })}
                       onClick={() => handleRestoreVideoVariant(idx)}
                       disabled={busy}
                     >
-                      ↩ Version {idx + 1} (Seed {v.seed})
+                      {t("scene.version", { n: idx + 1, seed: v.seed })}
                     </button>
                   ))}
                 </div>

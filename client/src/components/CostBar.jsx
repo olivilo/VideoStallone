@@ -1,6 +1,8 @@
+import { useTranslation } from "react-i18next";
 import { snapDuration } from "../videoModelCapabilities";
 
 export default function CostBar({ project, videoModels }) {
+  const { t } = useTranslation();
   if (!project?.scenes?.length) return null;
 
   const fmt = (n) => n < 0.01 ? `< $0.01` : `$${n.toFixed(2)}`;
@@ -31,10 +33,10 @@ export default function CostBar({ project, videoModels }) {
   return (
     <div className="cost-bar">
       <div className="cost-item">
-        <span className="cost-label">Bisherige Video-Kosten</span>
+        <span className="cost-label">{t("cost.pastTitle")}</span>
         <span className="cost-value">{pastVideoCost > 0 ? fmt(pastVideoCost) : "—"}</span>
         <span className="cost-sub">
-          {project.scenes.filter(s => s.videoCost).length} von {project.scenes.length} Videos abgerechnet
+          {t("cost.pastSub", { billed: project.scenes.filter(s => s.videoCost).length, total: project.scenes.length })}
         </span>
       </div>
 
@@ -42,16 +44,16 @@ export default function CostBar({ project, videoModels }) {
 
       <div className="cost-item">
         <span className="cost-label">
-          Geschätzte Kosten "Alle generieren"
-          {pendingScenes.length > 0 && <span className="cost-pending-badge">{pendingScenes.length} offen</span>}
+          {t("cost.estimateTitle")}
+          {pendingScenes.length > 0 && <span className="cost-pending-badge">{t("cost.openBadge", { count: pendingScenes.length })}</span>}
         </span>
         <span className="cost-value cost-value-estimate">
           {estimatedCost != null
             ? estimatedCost > 0 ? fmt(estimatedCost) : "—"
-            : <span className="cost-unknown">kein Preis bekannt</span>}
+            : <span className="cost-unknown">{t("cost.noPrice")}</span>}
         </span>
         <span className="cost-sub">
-          {pendingDuration}s · {pendingScenes.length} Szene{pendingScenes.length !== 1 ? "n" : ""}
+          {pendingDuration}s · {t("cost.scenes", { count: pendingScenes.length })}
           {pricePerSec > 0 && ` · ${selectedModel?.name || project.settings.videoModel} @ $${pricePerSec}/s`}
         </span>
       </div>
@@ -59,13 +61,13 @@ export default function CostBar({ project, videoModels }) {
       <div className="cost-divider" />
 
       <div className="cost-item cost-item-total">
-        <span className="cost-label">Gesamt Film</span>
+        <span className="cost-label">{t("cost.totalTitle")}</span>
         <span className="cost-value">
-          {totalDuration}s · {project.scenes.length} Szenen
+          {totalDuration}s · {t("cost.scenes", { count: project.scenes.length })}
         </span>
         <span className="cost-sub">
           {estimatedCost != null && pastVideoCost + estimatedCost > 0
-            ? `Est. Gesamt: ${fmt(pastVideoCost + estimatedCost)}`
+            ? t("cost.estTotal", { amount: fmt(pastVideoCost + estimatedCost) })
             : ""}
         </span>
       </div>

@@ -27,6 +27,28 @@ export const VIDEO_MODEL_CAPABILITIES = {
   "xai/grok-imagine-video":       { min: 1, max: 15 },
 };
 
+// Models known to generate an audio track with the video. Used as a fallback
+// when the API response does not expose an audio capability flag.
+export const AUDIO_CAPABLE_MODELS = new Set([
+  "google/veo-3.1",
+  "google/veo-3.1-fast",
+  "google/veo-3.1-lite",
+  "openai/sora-2-pro",
+  "kwaivgi/kling-v3.0-pro",
+  "kwaivgi/kling-v3.0-std",
+  "kuaishou/kling-v3-pro",
+  "kuaishou/kling-v3-standard",
+  "bytedance/seedance-1.5-pro"
+]);
+
+function detectAudioCapable(m) {
+  // Prefer explicit API signals; fall back to the curated set.
+  if (m.supports_audio === true || m.generate_audio === true) return true;
+  if (Array.isArray(m.output_modalities) && m.output_modalities.includes("audio")) return true;
+  if (m.pricing && (m.pricing.audio || m.pricing.video_with_audio)) return true;
+  return AUDIO_CAPABLE_MODELS.has(m.id);
+}
+
 // In-memory cache of live capabilities and pricing from the API
 let _liveCapabilities = {};
 let _videoPricing = {}; // modelId -> price per second (number)
@@ -170,6 +192,8 @@ export async function listVideoModels({ apiKey }) {
     }
     const pps = parseFloat(m.pricing?.video || m.pricing?.per_second || 0);
     if (pps) priceMap[m.id] = pps;
+    // Annotate each model so the client can filter by audio capability.
+    m.audioCapable = detectAudioCapable(m);
   }
   if (Object.keys(liveMap).length) _liveCapabilities = liveMap;
   if (Object.keys(priceMap).length) _videoPricing = priceMap;

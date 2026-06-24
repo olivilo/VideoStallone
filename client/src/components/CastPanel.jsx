@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 
-const TYPE_LABELS = { character: "🧑 Charakter", entity: "🏭 Entität" };
+const TYPE_KEYS = { character: "cast.typeCharacter", entity: "cast.typeEntity" };
 
 function emptyEntry(type = "character") {
   return {
@@ -17,6 +18,7 @@ function emptyEntry(type = "character") {
 }
 
 function CastCard({ entry, isGlobal, workspaceRoot, folder, imageModel, textModel, onUpdated, onDeleted, onPushGlobal, onImport }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState(entry);
   const [busy, setBusy] = useState(false);
@@ -44,7 +46,7 @@ function CastCard({ entry, isGlobal, workspaceRoot, folder, imageModel, textMode
   }
 
   async function handleDelete() {
-    if (!window.confirm(`"${entry.name}" wirklich löschen?`)) return;
+    if (!window.confirm(t("cast.confirmDelete", { name: entry.name }))) return;
     setBusy(true);
     try {
       if (isGlobal) await api.deleteGlobalCast(entry.id);
@@ -57,9 +59,9 @@ function CastCard({ entry, isGlobal, workspaceRoot, folder, imageModel, textMode
   async function handlePhotoUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) { setError("Nur Bilder erlaubt"); return; }
-    if (file.size > 8 * 1024 * 1024) { setError("Max. 8MB"); return; }
-    setBusy(true); setBusyLabel("Lade hoch..."); setError("");
+    if (!file.type.startsWith("image/")) { setError(t("cast.onlyImages")); return; }
+    if (file.size > 8 * 1024 * 1024) { setError(t("cast.maxSize")); return; }
+    setBusy(true); setBusyLabel(t("cast.uploading")); setError("");
     const reader = new FileReader();
     reader.onload = async (ev) => {
       try {
@@ -99,7 +101,7 @@ function CastCard({ entry, isGlobal, workspaceRoot, folder, imageModel, textMode
   }
 
   async function handleGenerateReference() {
-    setBusy(true); setBusyLabel("Generiere Referenzbild..."); setError("");
+    setBusy(true); setBusyLabel(t("cast.generatingRef")); setError("");
     try {
       const fn = isGlobal
         ? () => api.generateGlobalCastReference(entry.id, imageModel, draft)
@@ -111,7 +113,7 @@ function CastCard({ entry, isGlobal, workspaceRoot, folder, imageModel, textMode
   }
 
   async function handleGenerateDescription() {
-    setBusy(true); setBusyLabel("Erstelle KI-Beschreibung..."); setError("");
+    setBusy(true); setBusyLabel(t("cast.generatingDesc")); setError("");
     try {
       const fn = isGlobal
         ? () => api.generateGlobalCastDescription(entry.id, textModel, draft)
@@ -133,17 +135,17 @@ function CastCard({ entry, isGlobal, workspaceRoot, folder, imageModel, textMode
           )}
         </div>
         <div className="cast-card-info">
-          <strong className="cast-name">{entry.name || "(kein Name)"}</strong>
-          <span className="cast-type-badge">{TYPE_LABELS[entry.type] || entry.type}</span>
+          <strong className="cast-name">{entry.name || t("cast.noName")}</strong>
+          <span className="cast-type-badge">{TYPE_KEYS[entry.type] ? t(TYPE_KEYS[entry.type]) : entry.type}</span>
           {entry.role && <span className="cast-role">{entry.role}</span>}
           <span className={`cast-inject-badge ${entry.injectAlways ? "inject-always" : "inject-keyword"}`}>
-            {entry.injectAlways ? "⚡ Immer" : `🔑 ${(entry.injectKeywords || []).join(", ") || "Keyword"}`}
+            {entry.injectAlways ? t("cast.always") : `🔑 ${(entry.injectKeywords || []).join(", ") || t("cast.keywordFallback")}`}
           </span>
         </div>
         {isGlobal ? (
-          <span className="cast-global-badge">⭐ Global</span>
+          <span className="cast-global-badge">{t("cast.globalBadge")}</span>
         ) : (
-          <button className="btn-icon" title="In globale Bibliothek schieben" onClick={(e) => { e.stopPropagation(); onPushGlobal(entry.id); }} disabled={busy}>⭐</button>
+          <button className="btn-icon" title={t("cast.pushGlobalTitle")} onClick={(e) => { e.stopPropagation(); onPushGlobal(entry.id); }} disabled={busy}>⭐</button>
         )}
         <span className="cast-expand-icon">{expanded ? "▲" : "▼"}</span>
       </div>
@@ -155,70 +157,70 @@ function CastCard({ entry, isGlobal, workspaceRoot, folder, imageModel, textMode
 
           <div className="cast-form-grid">
             <label>
-              Name
-              <input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} placeholder="z.B. DampfLok, GnussZep, DJ Max" />
+              {t("cast.name")}
+              <input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} placeholder={t("cast.namePlaceholder")} />
             </label>
             <label>
-              Typ
+              {t("cast.type")}
               <select value={draft.type} onChange={e => setDraft({ ...draft, type: e.target.value })}>
-                <option value="character">🧑 Charakter (Person)</option>
-                <option value="entity">🏭 Entität (Objekt/Fahrzeug/Ort)</option>
+                <option value="character">{t("cast.typeCharOpt")}</option>
+                <option value="entity">{t("cast.typeEntityOpt")}</option>
               </select>
             </label>
             <label>
-              Rolle im Film
-              <input value={draft.role} onChange={e => setDraft({ ...draft, role: e.target.value })} placeholder="z.B. Hauptcharakter, Wiederkehrendes Fahrzeug" />
+              {t("cast.role")}
+              <input value={draft.role} onChange={e => setDraft({ ...draft, role: e.target.value })} placeholder={t("cast.rolePlaceholder")} />
             </label>
             <label>
-              Injektion
+              {t("cast.injection")}
               <select value={draft.injectAlways ? "always" : "keyword"} onChange={e => setDraft({ ...draft, injectAlways: e.target.value === "always" })}>
-                <option value="always">⚡ Immer in alle Szenen</option>
-                <option value="keyword">🔑 Nur bei Keyword-Treffer</option>
+                <option value="always">{t("cast.injectAlwaysOpt")}</option>
+                <option value="keyword">{t("cast.injectKeywordOpt")}</option>
               </select>
             </label>
           </div>
 
           {!draft.injectAlways && (
             <label>
-              Keywords (kommagetrennt)
+              {t("cast.keywordsLabel")}
               <input
                 value={(draft.injectKeywords || []).join(", ")}
                 onChange={e => setDraft({ ...draft, injectKeywords: e.target.value.split(",").map(k => k.trim()).filter(Boolean) })}
-                placeholder="z.B. train, locomotive, dampflok"
+                placeholder={t("cast.keywordsPlaceholder")}
               />
             </label>
           )}
 
           <label>
-            Beschreibung (manuell)
+            {t("cast.descManual")}
             <textarea rows={3} value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })}
-              placeholder="Visuelle Beschreibung: Aussehen, Merkmale, Kleidung..." />
+              placeholder={t("cast.descPlaceholder")} />
           </label>
 
           <label>
-            Stil-Notizen
+            {t("cast.styleNotes")}
             <textarea rows={2} value={draft.styleNotes} onChange={e => setDraft({ ...draft, styleNotes: e.target.value })}
-              placeholder="Verhalten, Instrument, Tanzstil, typische Pose..." />
+              placeholder={t("cast.styleNotesPlaceholder")} />
           </label>
 
           <div className="cast-ai-desc-wrap">
             <label>
-              KI-Beschreibung (Prompt-optimiert)
+              {t("cast.aiDesc")}
               <textarea rows={3} value={draft.aiDescription} onChange={e => setDraft({ ...draft, aiDescription: e.target.value })}
-                placeholder="Wird automatisch generiert oder manuell eingegeben..." />
+                placeholder={t("cast.aiDescPlaceholder")} />
             </label>
             <button className="btn-secondary btn-small" onClick={handleGenerateDescription} disabled={busy}>
-              ✨ KI-Beschreibung generieren
+              {t("cast.genAiDesc")}
             </button>
-            <p className="hint-text small">Braucht ein Modell mit Vision-Fähigkeit (z.B. Claude, GPT-4o)</p>
+            <p className="hint-text small">{t("cast.visionHint")}</p>
           </div>
 
           <div className="cast-photos-section">
             <div className="cast-photos-header">
-              <span className="cast-section-title">Referenzfotos</span>
+              <span className="cast-section-title">{t("cast.refPhotos")}</span>
               <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoUpload} />
               <button className="btn-secondary btn-small" onClick={() => fileRef.current?.click()} disabled={busy}>
-                📷 Foto hochladen
+                {t("cast.uploadPhoto")}
               </button>
             </div>
             {(entry.photos || []).length > 0 && (
@@ -228,40 +230,40 @@ function CastCard({ entry, isGlobal, workspaceRoot, folder, imageModel, textMode
                   const isDirectRef = entry.referenceImagePath === p;
                   return (
                     <div key={i} className={`cast-photo-item ${isDirectRef ? "cast-photo-is-ref" : ""}`}>
-                      <img src={assetUrl(p)} alt={`Foto ${i + 1}`} className="cast-photo-thumb" />
+                      <img src={assetUrl(p)} alt={t("cast.photoAlt", { n: i + 1 })} className="cast-photo-thumb" />
                       <div className="cast-photo-actions">
                         <button
                           className="cast-photo-pin"
                           onClick={() => handleSetReferencePhoto(p)}
                           disabled={busy}
-                          title="Als Referenzbild verwenden"
+                          title={t("cast.useAsRef")}
                         >📌</button>
-                        <button className="cast-photo-delete" onClick={() => handleDeletePhoto(p)} disabled={busy} title="Löschen">×</button>
+                        <button className="cast-photo-delete" onClick={() => handleDeletePhoto(p)} disabled={busy} title={t("cast.deletePhoto")}>×</button>
                       </div>
-                      {isDirectRef && <span className="cast-photo-ref-badge">Referenz</span>}
+                      {isDirectRef && <span className="cast-photo-ref-badge">{t("cast.refBadge")}</span>}
                     </div>
                   );
                 })}
               </div>
             )}
-            <p className="hint-text small">📌 = direkt als Referenzbild setzen (kein KI-Schritt nötig). Auch ohne Referenzbild wird das erste Foto automatisch als visuelle Vorlage genutzt.</p>
+            <p className="hint-text small">{t("cast.photoHint")}</p>
           </div>
 
           <div className="cast-reference-section">
-            <span className="cast-section-title">Referenzbild (KI-generiert)</span>
+            <span className="cast-section-title">{t("cast.refImageAi")}</span>
             {entry.referenceImagePath && (
-              <img src={assetUrl(entry.referenceImagePath)} alt="Referenz" className="cast-ref-image" />
+              <img src={assetUrl(entry.referenceImagePath)} alt={t("cast.refBadge")} className="cast-ref-image" />
             )}
             <button className="btn-secondary btn-small" onClick={handleGenerateReference} disabled={busy}>
-              🖼️ Referenzbild generieren
+              {t("cast.genRefImage")}
             </button>
-            <p className="hint-text small">Nutzt Fotos + Beschreibung als Basis. Dieses Bild wird als visueller Anker in Storyboards verwendet.</p>
+            <p className="hint-text small">{t("cast.refImageHint")}</p>
           </div>
 
           <div className="cast-card-actions">
-            <button className="btn-secondary" onClick={() => { setExpanded(false); setDraft(entry); }} disabled={busy}>Abbrechen</button>
-            <button className="btn-primary" onClick={handleSave} disabled={busy}>Speichern</button>
-            <button className="btn-danger btn-small" onClick={handleDelete} disabled={busy}>🗑 Löschen</button>
+            <button className="btn-secondary" onClick={() => { setExpanded(false); setDraft(entry); }} disabled={busy}>{t("common.cancel")}</button>
+            <button className="btn-primary" onClick={handleSave} disabled={busy}>{t("common.save")}</button>
+            <button className="btn-danger btn-small" onClick={handleDelete} disabled={busy}>{t("cast.deleteBtn")}</button>
           </div>
         </div>
       )}
@@ -270,6 +272,7 @@ function CastCard({ entry, isGlobal, workspaceRoot, folder, imageModel, textMode
 }
 
 export default function CastPanel({ workspaceRoot, folder, project }) {
+  const { t } = useTranslation();
   const [projectCast, setProjectCast] = useState([]);
   const [globalCast, setGlobalCast] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -338,7 +341,7 @@ export default function CastPanel({ workspaceRoot, folder, project }) {
     setGlobalCast(prev => prev.filter(e => e.id !== id));
   }
 
-  if (loading) return <p className="hint-text">Lade Cast...</p>;
+  if (loading) return <p className="hint-text">{t("cast.loading")}</p>;
 
   const alreadyImportedIds = new Set(projectCast.map(e => e.sourceGlobalId).filter(Boolean));
 
@@ -347,17 +350,17 @@ export default function CastPanel({ workspaceRoot, folder, project }) {
       {error && <div className="error-banner">{error}</div>}
 
       <div className="cast-actions-bar">
-        <button className="btn-primary" onClick={() => handleCreate("character")}>+ Charakter</button>
-        <button className="btn-secondary" onClick={() => handleCreate("entity")}>+ Entität</button>
+        <button className="btn-primary" onClick={() => handleCreate("character")}>{t("cast.addCharacter")}</button>
+        <button className="btn-secondary" onClick={() => handleCreate("entity")}>{t("cast.addEntity")}</button>
         <button className="btn-tertiary" onClick={() => setShowGlobal(v => !v)}>
-          ⭐ Globale Bibliothek {showGlobal ? "▲" : "▼"}
+          {t("cast.globalLibrary")} {showGlobal ? "▲" : "▼"}
         </button>
       </div>
 
       <div className="cast-section">
-        <h4 className="cast-section-heading">Projekt-Cast ({projectCast.length})</h4>
+        <h4 className="cast-section-heading">{t("cast.projectCast", { count: projectCast.length })}</h4>
         {projectCast.length === 0 && (
-          <p className="hint-text">Noch keine Einträge. Erstelle Charaktere oder Entitäten die in allen Szenen konsistent bleiben sollen.</p>
+          <p className="hint-text">{t("cast.emptyProject")}</p>
         )}
         {projectCast.map(entry => (
           <CastCard
@@ -377,10 +380,10 @@ export default function CastPanel({ workspaceRoot, folder, project }) {
 
       {showGlobal && (
         <div className="cast-section cast-section-global">
-          <h4 className="cast-section-heading">⭐ Globale Bibliothek ({globalCast.length})</h4>
-          <p className="hint-text small">Chars/Entitäten die du in mehreren Projekten nutzt. Klick "Importieren" um sie ins aktuelle Projekt zu kopieren.</p>
+          <h4 className="cast-section-heading">{t("cast.globalTitle", { count: globalCast.length })}</h4>
+          <p className="hint-text small">{t("cast.globalHint")}</p>
           {globalCast.length === 0 && (
-            <p className="hint-text">Noch leer. Schiebe einen Projekt-Eintrag mit ⭐ in die globale Bibliothek.</p>
+            <p className="hint-text">{t("cast.globalEmpty")}</p>
           )}
           {globalCast.map(entry => (
             <div key={entry.id} className="cast-global-row">
@@ -398,10 +401,10 @@ export default function CastPanel({ workspaceRoot, folder, project }) {
               />
               {!alreadyImportedIds.has(entry.id) ? (
                 <button className="btn-secondary btn-small cast-import-btn" onClick={() => handleImport(entry.id)}>
-                  ↓ Ins Projekt importieren
+                  {t("cast.import")}
                 </button>
               ) : (
-                <span className="hint-text small">✓ Bereits importiert</span>
+                <span className="hint-text small">{t("cast.alreadyImported")}</span>
               )}
             </div>
           ))}

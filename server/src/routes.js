@@ -35,6 +35,21 @@ import {
   getCastReferenceUrls,
   getProjectCastDir
 } from "./cast.js";
+import { generateImageComfyUI, listComfyCheckpoints, ComfyUIError } from "./comfyui.js";
+
+// Route storyboard image generation to the configured provider.
+// Returns an array of image URLs/data-URLs (same shape as generateImage()).
+async function generateStoryboardImage({ cfg, project, model, prompt, referenceImageUrls, seed }) {
+  if (cfg.imageProvider === "comfyui") {
+    return generateImageComfyUI({
+      settings: cfg.comfyui,
+      prompt,
+      negativePrompt: project?.settings?.negativePrompt || "",
+      seed
+    });
+  }
+  return generateImage({ apiKey: cfg.openrouterApiKey, model, prompt, referenceImageUrls, seed });
+}
 
 function randomSeed() {
   return Math.floor(Math.random() * 1_000_000_000);
@@ -80,7 +95,7 @@ function wrapAsync(fn) {
   return (req, res) => {
     Promise.resolve(fn(req, res)).catch((err) => {
       console.error(err);
-      const status = err instanceof OpenRouterError ? err.status || 500 : 500;
+      const status = err.status || (err instanceof OpenRouterError ? 500 : 500);
       res.status(status).json({ error: err.message || "Unbekannter Fehler" });
     });
   };
@@ -95,7 +110,9 @@ router.get("/settings", (req, res) => {
     hasApiKey: Boolean(cfg.openrouterApiKey),
     workspaceRoot: cfg.workspaceRoot,
     recentWorkspaces: cfg.recentWorkspaces,
-    defaultModels: cfg.defaultModels
+    defaultModels: cfg.defaultModels,
+    imageProvider: cfg.imageProvider || "openrouter",
+    comfyui: cfg.comfyui
   });
 });
 
@@ -115,6 +132,24 @@ router.post("/settings/default-models", (req, res) => {
   saveConfig({ defaultModels });
   res.json({ defaultModels });
 });
+
+router.post("/settings/image-provider", (req, res) => {
+  const { imageProvider, comfyui } = req.body;
+  const cfg = loadConfig();
+  const next = {};
+  if (imageProvider === "openrouter" || imageProvider === "comfyui") next.imageProvider = imageProvider;
+  if (comfyui && typeof comfyui === "object") next.comfyui = { ...cfg.comfyui, ...comfyui };
+  saveConfig(next);
+  const saved = loadConfig();
+  res.json({ imageProvider: saved.imageProvider, comfyui: saved.comfyui });
+});
+
+// List checkpoints available in the running ComfyUI instance.
+router.get("/comfyui/models", wrapAsync(async (req, res) => {
+  const cfg = loadConfig();
+  const checkpoints = await listComfyCheckpoints(cfg.comfyui);
+  res.json({ checkpoints });
+}));
 
 /* ---------------- Filesystem Browser (für Ordner-Auswahl GUI) ---------------- */
 
@@ -223,6 +258,8 @@ router.post("/projects/:folder/plan", wrapAsync(async (req, res) => {
     storyboardPrompt: s.storyboardPrompt,
     camera: s.camera,
     transition: s.transition,
+    // Structured outgoing transition into the NEXT scene (cut by default).
+    transitionOut: { type: "cut", durationMs: 0 },
     durationSeconds: s.durationSeconds || 6,
     storyboardStatus: "pending",
     storyboardImagePath: null,
@@ -303,6 +340,26 @@ router.put("/projects/:folder/scenes/:sceneId", wrapAsync(async (req, res) => {
   res.json({ project });
 }));
 
+// Set a scene's outgoing transition WITHOUT invalidating its rendered assets.
+router.put("/projects/:folder/scenes/:sceneId/transition", wrapAsync(async (req, res) => {
+  const { workspaceRoot } = req.query;
+  const { type, durationMs } = req.body;
+  const project = loadProject(workspaceRoot, req.params.folder);
+  const scene = project.scenes.find((s) => s.id === req.params.sceneId);
+  if (!scene) return res.status(404).json({ error: "Szene nicht gefunden" });
+
+  const VALID = ["cut", "dissolve", "fadeblack", "fadewhite", "wipeleft", "wiperight", "wipeup", "wipedown", "slideleft", "slideright", "morph"];
+  if (type && !VALID.includes(type)) {
+    return res.status(400).json({ error: `Unbekannter Übergangstyp: ${type}` });
+  }
+  scene.transitionOut = {
+    type: type || "cut",
+    durationMs: type === "cut" || type === "morph" ? 0 : Math.max(0, Number(durationMs) || 500)
+  };
+  saveProject(workspaceRoot, req.params.folder, project);
+  res.json({ project });
+}));
+
 router.post("/projects/:folder/scenes/reorder", wrapAsync(async (req, res) => {
   const { workspaceRoot } = req.query;
   const { sceneIdsInOrder } = req.body;
@@ -339,7 +396,9 @@ router.post("/projects/:folder/scenes/:sceneId/storyboard", wrapAsync(async (req
 
   const rawModel = model || project.settings.imageModel || cfg.defaultModels.image;
   const imageModel = rawModel ? rawModel.replace(/^[~\s]+/, "").trim() : rawModel;
-  if (!imageModel) return res.status(400).json({ error: "Kein Bild-Modell ausgewählt." });
+  if (cfg.imageProvider !== "comfyui" && !imageModel) {
+    return res.status(400).json({ error: "Kein Bild-Modell ausgewählt." });
+  }
   const seed = randomSeed();
 
   // Save current image to variants before overwriting
@@ -361,8 +420,9 @@ router.post("/projects/:folder/scenes/:sceneId/storyboard", wrapAsync(async (req
     const sceneText = scene.storyboardPrompt || scene.description || "";
     const castNote = buildCastInjection(castEntries, sceneText);
     const castRefUrls = getCastReferenceUrls(castEntries, getProjectCastDir(workspaceRoot, req.params.folder));
-    const urls = await generateImage({
-      apiKey: cfg.openrouterApiKey,
+    const urls = await generateStoryboardImage({
+      cfg,
+      project,
       model: imageModel,
       prompt: `${stylePrefix}Cinematic storyboard frame, single key composition, ${scene.camera}. Scene: ${sceneText}${castNote}`,
       referenceImageUrls: castRefUrls,
@@ -661,8 +721,9 @@ router.post("/projects/:folder/generate-all", wrapAsync(async (req, res) => {
         const sbText = scene.storyboardPrompt || scene.description || "";
         const castNoteSb = buildCastInjection(castEntriesBatch, sbText);
         const castRefUrlsSb = getCastReferenceUrls(castEntriesBatch, getProjectCastDir(workspaceRoot, folder));
-        const urls = await generateImage({
-          apiKey: cfg.openrouterApiKey,
+        const urls = await generateStoryboardImage({
+          cfg,
+          project,
           model: effectiveImageModel,
           prompt: `${stylePfx}Cinematic storyboard frame, single key composition, ${scene.camera}. Scene: ${sbText}${castNoteSb}`,
           referenceImageUrls: castRefUrlsSb,

@@ -31,6 +31,8 @@ export const api = {
   getSettings: () => request("/settings"),
   setApiKey: (apiKey) => request("/settings/api-key", { method: "POST", body: JSON.stringify({ apiKey }) }),
   setDefaultModels: (models) => request("/settings/default-models", { method: "POST", body: JSON.stringify(models) }),
+  setImageProvider: (imageProvider, comfyui) => request("/settings/image-provider", { method: "POST", body: JSON.stringify({ imageProvider, comfyui }) }),
+  listComfyModels: () => request("/comfyui/models"),
 
   // Filesystem
   browse: (path) => request(`/fs/browse${qs({ path })}`),
@@ -62,6 +64,8 @@ export const api = {
     request(`/projects/${folder}/scenes/${sceneId}${qs({ workspaceRoot })}`, { method: "PUT", body: JSON.stringify(fields) }),
   reorderScenes: (workspaceRoot, folder, sceneIdsInOrder) =>
     request(`/projects/${folder}/scenes/reorder${qs({ workspaceRoot })}`, { method: "POST", body: JSON.stringify({ sceneIdsInOrder }) }),
+  setSceneTransition: (workspaceRoot, folder, sceneId, type, durationMs) =>
+    request(`/projects/${folder}/scenes/${sceneId}/transition${qs({ workspaceRoot })}`, { method: "PUT", body: JSON.stringify({ type, durationMs }) }),
   deleteScene: (workspaceRoot, folder, sceneId) =>
     request(`/projects/${folder}/scenes/${sceneId}${qs({ workspaceRoot })}`, { method: "DELETE" }),
 

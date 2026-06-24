@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
-export default function ModelSelect({ value, onChange, models, loading, error, placeholder = "Modell suchen..." }) {
+export default function ModelSelect({ value, onChange, models, loading, error, placeholder }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const containerRef = useRef();
@@ -47,7 +49,7 @@ export default function ModelSelect({ value, onChange, models, loading, error, p
         title={value}
       >
         <span className="model-select-value">
-          {loading ? "Lade Modelle..." : displayText || <span className="model-select-placeholder">{placeholder}</span>}
+          {loading ? t("modelSelect.loading") : displayText || <span className="model-select-placeholder">{placeholder || t("modelSelect.search")}</span>}
         </span>
         <span className="model-select-arrow">{open ? "▲" : "▼"}</span>
       </div>
@@ -59,7 +61,7 @@ export default function ModelSelect({ value, onChange, models, loading, error, p
             autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Suchen..."
+            placeholder={t("modelSelect.search")}
             onClick={e => e.stopPropagation()}
           />
           {error && <div className="model-select-error">{error}</div>}
@@ -69,7 +71,7 @@ export default function ModelSelect({ value, onChange, models, loading, error, p
             {query && !models.find(m => m.id === query) && (
               <div className="model-select-item model-select-custom" onMouseDown={() => handleSelect(query)}>
                 <span className="model-select-id">"{query}"</span>
-                <span className="model-select-badge">Eigene Eingabe</span>
+                <span className="model-select-badge">{t("modelSelect.custom")}</span>
               </div>
             )}
 
@@ -96,10 +98,10 @@ export default function ModelSelect({ value, onChange, models, loading, error, p
             ))}
 
             {filtered.length === 0 && !query && (
-              <div className="model-select-empty">Keine Modelle verfügbar</div>
+              <div className="model-select-empty">{t("modelSelect.empty")}</div>
             )}
             {filtered.length === 0 && query && (
-              <div className="model-select-empty">Kein Treffer — drücke Enter für eigene Eingabe</div>
+              <div className="model-select-empty">{t("modelSelect.noMatch")}</div>
             )}
           </div>
         </div>

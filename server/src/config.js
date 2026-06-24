@@ -14,6 +14,19 @@ const DEFAULT_CONFIG = {
     text: "anthropic/claude-sonnet-4.5",
     image: "google/gemini-2.5-flash-image",
     video: ""
+  },
+  // Where storyboard images are generated. "openrouter" (cloud, paid) or
+  // "comfyui" (local, free — needs ComfyUI running on the host).
+  imageProvider: "openrouter",
+  comfyui: {
+    url: "http://localhost:8188",
+    checkpoint: "realisticVisionV60B1_v51HyperVAE.safetensors",
+    steps: 6,
+    cfg: 2,
+    samplerName: "dpmpp_sde",
+    scheduler: "karras",
+    width: 768,
+    height: 432
   }
 };
 

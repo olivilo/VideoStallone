@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.3.0 — 2026-06-24
+
+### Internationalization (11 languages)
+- **Full UI translation** via `react-i18next` — every component now uses translation keys instead of hardcoded German
+- **11 languages:** English, German, Serbian (Latin), French, Spanish, Portuguese, Russian, Chinese (Simplified), Chinese (Traditional), Hindi, Arabic
+- **Right-to-left support** for Arabic (`dir="rtl"`, mirrored sidebar and menus)
+- **Script-specific fonts** loaded per language: Devanagari (Hindi), Arabic, Traditional CJK, Cyrillic display serif (Russian)
+- **Language switcher** in the header; choice persists in `localStorage`, browser language auto-detected
+- **Searchable FAQ / help** modal, grouped by category, in every language
+- **Local AI translation pipeline** (`scripts/translate.mjs`) — generates all locale files from `en.json` via a local LM Studio endpoint, with retries and a single-key fallback for reliability; machine-translated files marked `"_machine": true` for review
+
+### UI redesign
+- **Sidebar navigation** (Projects · Settings · Help) replacing the top tab bar
+- **Light/Dark theme toggle** — full warm "paper" light palette via CSS variables, no flash on load, choice persisted
+- Responsive: sidebar collapses on narrow screens
+
+### Local image generation (ComfyUI)
+- **Switchable image provider** — generate storyboards locally and for free via a running ComfyUI instance instead of OpenRouter (cloud)
+- Settings UI to pick the provider, ComfyUI URL, checkpoint (auto-listed from ComfyUI), steps, CFG and size
+- Fast defaults (few-step "Hyper"/"Schnell" models) to keep the machine responsive during generation
+- OpenRouter remains the default and a one-click fallback
+
+### Groundwork (not yet wired into the UI)
+- Per-scene `transitionOut` data model (cut / dissolve / fades / wipes / slides / morph) + a save route that does not invalidate rendered assets
+- Audio-capability detection for video models (`audioCapable`), basis for filtering audio-capable models
+
 ## v0.2.1 — 2026-06-24
 
 ### Bug fixes

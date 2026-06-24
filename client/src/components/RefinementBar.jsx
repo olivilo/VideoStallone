@@ -1,13 +1,15 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export default function RefinementBar({ onRefine, refining }) {
+  const { t } = useTranslation();
   const [instruction, setInstruction] = useState("");
 
   return (
     <div className="refinement-bar">
       <input
         type="text"
-        placeholder='z.B. "Mach Szene 3 dramatischer" oder "Füge nach Szene 2 eine Verfolgungsjagd ein"'
+        placeholder={t("refine.placeholder")}
         value={instruction}
         onChange={(e) => setInstruction(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && instruction.trim() && onRefine(instruction.trim())}
@@ -20,7 +22,7 @@ export default function RefinementBar({ onRefine, refining }) {
           setInstruction("");
         }}
       >
-        {refining ? "Wende an..." : "↻ Storyboard anpassen"}
+        {refining ? t("refine.applying") : t("refine.apply")}
       </button>
     </div>
   );

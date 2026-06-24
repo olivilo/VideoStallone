@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import IdeaInput from "./IdeaInput";
 import SceneCard from "./SceneCard";
@@ -31,6 +32,7 @@ const VIDEO_PRICING_MAP = {
 
 
 export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultModels, hasApiKey }) {
+  const { t } = useTranslation();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -157,7 +159,7 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
   }
 
   async function handleDeleteScene(sceneId) {
-    if (!window.confirm("Diese Szene wirklich löschen?")) return;
+    if (!window.confirm(t("editor.confirmDeleteScene"))) return;
     try {
       const { project } = await api.deleteScene(workspaceRoot, folder, sceneId);
       setProject(project);
@@ -193,7 +195,7 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
   }
 
   async function handleGenerateAll() {
-    if (!window.confirm("Alle Szenen automatisch mit Storyboard-Bild und Video-Job bestücken? (Storyboards werden automatisch freigegeben)")) return;
+    if (!window.confirm(t("editor.confirmGenerateAll"))) return;
     setBatchRunning(true);
     setError("");
     try {
@@ -224,8 +226,8 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
     }
   }
 
-  if (loading) return <p>Lade Projekt...</p>;
-  if (!project) return <p>Projekt nicht gefunden.</p>;
+  if (loading) return <p>{t("editor.loading")}</p>;
+  if (!project) return <p>{t("editor.notFound")}</p>;
 
   const approvedVideos = project.scenes.filter((s) => s.videoStatus === "approved");
   const readyOrApprovedVideos = project.scenes.filter((s) => s.videoStatus === "approved" || s.videoStatus === "ready");
@@ -239,15 +241,15 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
   return (
     <div className="project-editor">
       <div className="project-editor-header">
-        <button className="btn-tertiary" onClick={onBack}>← Zurück zu Projekten</button>
+        <button className="btn-tertiary" onClick={onBack}>{t("editor.back")}</button>
         <h2>{project.name}</h2>
       </div>
 
       {error && <div className="error-banner">{error}</div>}
 
       <div className="project-tabs">
-        <button className={`tab ${activeTab === "scenes" ? "tab-active" : ""}`} onClick={() => setActiveTab("scenes")}>🎬 Szenen</button>
-        <button className={`tab ${activeTab === "cast" ? "tab-active" : ""}`} onClick={() => setActiveTab("cast")}>🎭 Cast & Entities</button>
+        <button className={`tab ${activeTab === "scenes" ? "tab-active" : ""}`} onClick={() => setActiveTab("scenes")}>{t("editor.tabScenes")}</button>
+        <button className={`tab ${activeTab === "cast" ? "tab-active" : ""}`} onClick={() => setActiveTab("cast")}>{t("editor.tabCast")}</button>
       </div>
 
       {activeTab === "cast" && (
@@ -261,8 +263,8 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
           <section className="project-models-bar">
             <label>
               <span className="model-bar-label">
-                Video-Modell
-                {!project.settings.videoModel && <span className="model-required-badge">Zuerst wählen!</span>}
+                {t("editor.videoModel")}
+                {!project.settings.videoModel && <span className="model-required-badge">{t("editor.selectFirst")}</span>}
               </span>
               <ModelSelect
                 value={project.settings.videoModel || ""}
@@ -270,97 +272,97 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
                 models={videoModels}
                 loading={videoModels.length === 0 && hasApiKey}
                 error={videoModelsError}
-                placeholder="Video-Modell wählen..."
+                placeholder={t("editor.videoModelPlaceholder")}
               />
               {project.settings.videoModel && project.scenes.length > 0 && (
                 <button
                   className="btn-snap-durations"
                   onClick={handleSnapDurations}
                   disabled={snapRunning}
-                  title="Alle Szenendauern auf nächsten gültigen Wert für dieses Modell anpassen"
+                  title={t("editor.snapTitle")}
                 >
-                  {snapRunning ? "..." : "⏱ Dauern anpassen"}
+                  {snapRunning ? "..." : t("editor.snapDurations")}
                 </button>
               )}
               {snapResult !== null && (
                 <span className="snap-result">
                   {snapResult.changed === 0
-                    ? "✓ Alle Dauern passen bereits"
-                    : `✓ ${snapResult.changed} Szene${snapResult.changed !== 1 ? "n" : ""} angepasst${snapResult.details.length ? ": " + snapResult.details.map(d => `S${d.scene} ${d.from}s→${d.to}s`).join(", ") : ""}`
+                    ? t("editor.snapNoChange")
+                    : `${t("editor.snapChanged", { count: snapResult.changed })}${snapResult.details.length ? ": " + snapResult.details.map(d => `S${d.scene} ${d.from}s→${d.to}s`).join(", ") : ""}`
                   }
                 </span>
               )}
             </label>
             <label>
-              Bild-Modell
+              {t("editor.imageModel")}
               <ModelSelect
                 value={project.settings.imageModel || ""}
                 onChange={(v) => handleModelChange("imageModel", v)}
                 models={imageModels}
                 loading={imageModelsLoading}
-                placeholder="Bild-Modell wählen..."
+                placeholder={t("editor.imageModelPlaceholder")}
               />
             </label>
             <label>
-              Text-Modell
+              {t("editor.textModel")}
               <ModelSelect
                 value={project.settings.textModel || ""}
                 onChange={(v) => handleModelChange("textModel", v)}
                 models={textModels}
                 loading={textModelsLoading}
-                placeholder="Text-Modell wählen..."
+                placeholder={t("editor.textModelPlaceholder")}
               />
             </label>
             <label>
-              Stil
+              {t("editor.style")}
               <select
                 value={project.settings.style || ""}
                 onChange={(e) => handleModelChange("style", e.target.value)}
               >
-                <option value="">Kein Stil (Modell entscheidet)</option>
-                <option value="cinematic">🎬 Cinematic / Realistisch</option>
-                <option value="comic">💥 Comic Book</option>
-                <option value="anime">🎌 Anime</option>
-                <option value="oil-painting">🖼️ Ölgemälde</option>
-                <option value="watercolor">🎨 Aquarell</option>
-                <option value="3d-render">🖥️ 3D Render / CGI</option>
+                <option value="">{t("styles.none")}</option>
+                <option value="cinematic">{t("styles.cinematic")}</option>
+                <option value="comic">{t("styles.comic")}</option>
+                <option value="anime">{t("styles.anime")}</option>
+                <option value="oil-painting">{t("styles.oilPainting")}</option>
+                <option value="watercolor">{t("styles.watercolor")}</option>
+                <option value="3d-render">{t("styles.render3d")}</option>
               </select>
             </label>
           </section>
 
           <details className="character-settings">
-            <summary>🎭 Charakter-Konsistenz</summary>
+            <summary>{t("editor.charConsistency")}</summary>
             <div className="character-settings-body">
               <label>
-                Charakterbeschreibung
-                <span className="hint-text small" style={{ marginLeft: 8 }}>wird in alle Video-Prompts injiziert</span>
+                {t("editor.charDescription")}
+                <span className="hint-text small" style={{ marginLeft: 8 }}>{t("editor.charInjected")}</span>
                 <textarea
                   rows={3}
                   value={project.settings.characters || ""}
                   onChange={(e) => handleModelChange("characters", e.target.value)}
-                  placeholder="z.B. Hauptcharakter: muskulöser Balkanmann Mitte 30, dunkle Haare, traditionelle Weste, immer derselbe"
+                  placeholder={t("editor.charPlaceholder")}
                 />
               </label>
               <label>
-                Negative Beschreibung
-                <span className="hint-text small" style={{ marginLeft: 8 }}>verhindert Transformationen</span>
+                {t("editor.negDescription")}
+                <span className="hint-text small" style={{ marginLeft: 8 }}>{t("editor.negPrevents")}</span>
                 <textarea
                   rows={2}
                   value={project.settings.negativePrompt || ""}
                   onChange={(e) => handleModelChange("negativePrompt", e.target.value)}
-                  placeholder="character transformation, gender change, species change, morphing, inconsistent character..."
+                  placeholder={t("editor.negPlaceholder")}
                 />
-                <span className="hint-text small">leer lassen = Standardwert wird verwendet</span>
+                <span className="hint-text small">{t("editor.negEmpty")}</span>
               </label>
             </div>
           </details>
 
           {videoModels.length > 0 && (
             <details className="video-price-details">
-              <summary>💰 Preisvergleich Video-Modelle</summary>
+              <summary>{t("editor.priceCompare")}</summary>
               <table className="video-price-table">
                 <thead>
-                  <tr><th>Modell</th><th>Preis</th></tr>
+                  <tr><th>{t("editor.tableModel")}</th><th>{t("editor.tablePrice")}</th></tr>
                 </thead>
                 <tbody>
                   {videoModels.map((m) => (
@@ -376,7 +378,7 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
                 </tbody>
               </table>
               <p className="hint-text small" style={{ marginTop: 6 }}>
-                Klick auf eine Zeile wählt das Modell aus. Bei 6s/Szene × 8 Szenen z.B. Veo 3.1 Fast ≈ $3–14 pro Durchlauf.
+                {t("editor.priceHint")}
               </p>
             </details>
           )}
@@ -390,20 +392,20 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
               disabled={batchRunning || !project.settings.videoModel || (batchDone && !batchHasErrors)}
             >
               {batchRunning
-                ? "⏳ Generierung läuft..."
+                ? t("editor.generating")
                 : batchHasErrors
-                  ? "🔁 Fehlgeschlagene Szenen erneut versuchen"
-                  : "🚀 Alle Szenen automatisch generieren"}
+                  ? t("editor.retryFailed")
+                  : t("editor.generateAll")}
             </button>
             {!project.settings.videoModel && (
-              <span className="hint-text small">Bitte zuerst ein Video-Modell auswählen.</span>
+              <span className="hint-text small">{t("editor.selectVideoFirst")}</span>
             )}
             {batchDone && !batchRunning && !batchHasErrors && (
-              <span className="hint-text small">✓ Alle Szenen wurden gestartet — Videos werden im Hintergrund fertig.</span>
+              <span className="hint-text small">{t("editor.allStarted")}</span>
             )}
             {batchHasErrors && !batchRunning && (
               <span className="hint-text small" style={{ color: "var(--color-error, #ef4444)" }}>
-                ⚠️ {project.scenes.filter((s) => s.videoStatus === "error").length} Video-Job(s) fehlgeschlagen — klick um erneut zu versuchen.
+                {t("editor.jobsFailed", { count: project.scenes.filter((s) => s.videoStatus === "error").length })}
               </span>
             )}
           </div>
@@ -427,31 +429,29 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
           <CostBar project={project} videoModels={videoModels} />
 
           <section className="export-section">
-            <h3>🎬 Film exportieren ({readyOrApprovedVideos.length}/{project.scenes.length} Videos bereit)</h3>
+            <h3>{t("editor.exportTitle", { ready: readyOrApprovedVideos.length, total: project.scenes.length })}</h3>
 
             {exportResult ? (
               <div className="export-success">
-                <p>✅ Film erfolgreich erstellt!</p>
+                <p>{t("editor.exportSuccess")}</p>
                 <code className="export-path">{exportResult.outputPath}</code>
-                <p className="hint-text small">{exportResult.sceneCount} Clips zusammengeführt → <strong>{exportResult.fileName}</strong></p>
-                <button className="btn-secondary" onClick={() => setExportResult(null)}>Erneut exportieren</button>
+                <p className="hint-text small">{t("editor.exportMerged", { count: exportResult.sceneCount })} <strong>{exportResult.fileName}</strong></p>
+                <button className="btn-secondary" onClick={() => setExportResult(null)}>{t("editor.exportAgain")}</button>
               </div>
             ) : (
               <>
                 <p className="hint-text">
-                  {allScenesHaveVideo
-                    ? "Alle Videos sind bereit. Klick auf den Button um sie mit ffmpeg zu einem Film zusammenzuschneiden."
-                    : "Sobald alle Videos generiert sind, werden sie hier zusammengeschnitten. Noch offene Videos werden automatisch freigegeben."}
+                  {allScenesHaveVideo ? t("editor.exportReadyHint") : t("editor.exportWaitHint")}
                 </p>
                 <button
                   className="btn-primary btn-large"
                   onClick={handleExport}
                   disabled={exportRunning || readyOrApprovedVideos.length === 0}
                 >
-                  {exportRunning ? "⏳ Schneide zusammen..." : `✂️ ${readyOrApprovedVideos.length} Clips zu Film zusammenfügen`}
+                  {exportRunning ? t("editor.exportStitching") : t("editor.exportButton", { count: readyOrApprovedVideos.length })}
                 </button>
                 {readyOrApprovedVideos.length === 0 && (
-                  <p className="hint-text small">Noch keine fertigen Videos vorhanden.</p>
+                  <p className="hint-text small">{t("editor.noFinishedVideos")}</p>
                 )}
               </>
             )}

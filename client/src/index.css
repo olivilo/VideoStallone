@@ -1,4 +1,17 @@
 :root {
+  /* Fonts (shared across themes) */
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
+
+  /* Layout */
+  --sidebar-w: 232px;
+  --hero-glow: rgba(224, 138, 60, 0.08);
+}
+
+/* ---------- Dark theme (default) ---------- */
+:root,
+:root[data-theme="dark"] {
   --bg-base: #15130f;
   --bg-panel: #1d1a14;
   --bg-card: #242019;
@@ -19,10 +32,66 @@
   --error-bg: #332019;
   --progress: #6f96b8;
   --progress-bg: #1f2a33;
-  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
-  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
+  --on-accent: #1b1306;
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --hero-glow: rgba(224, 138, 60, 0.08);
 }
+
+/* ---------- Light theme (warm paper) ---------- */
+:root[data-theme="light"] {
+  --bg-base: #f7f1e6;
+  --bg-panel: #fdf9f1;
+  --bg-card: #fffdf8;
+  --bg-elevated: #f1e8d8;
+  --border-subtle: #e4d9c3;
+  --border-strong: #d2c3a4;
+  --text-primary: #2a2419;
+  --text-secondary: #6b6049;
+  --text-tertiary: #968a70;
+  --accent: #c6711f;
+  --accent-bright: #e0883c;
+  --accent-dim: #ecdcc2;
+  --success: #4f7a3e;
+  --success-bg: #e9f1df;
+  --review: #9a781d;
+  --review-bg: #f6edd4;
+  --error: #c1492f;
+  --error-bg: #f7e3dc;
+  --progress: #3f6a92;
+  --progress-bg: #e2ecf4;
+  --on-accent: #fff8ee;
+  --shadow-card: 0 2px 10px rgba(120, 96, 50, 0.12);
+  --hero-glow: rgba(224, 138, 60, 0.16);
+}
+
+/* ---------- Script-specific font fallbacks ---------- */
+:root[lang="zh"] {
+  --font-display: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-body: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", -apple-system, sans-serif;
+}
+:root[lang="ru"] {
+  /* Fraunces lacks Cyrillic; use a Cyrillic-capable serif for headings */
+  --font-display: "Iowan Old Style", Georgia, "Noto Serif", serif;
+}
+:root[lang="zh-Hant"] {
+  --font-display: "PingFang TC", "Hiragino Sans CNS", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+  --font-body: "PingFang TC", "Hiragino Sans CNS", "Microsoft JhengHei", "Noto Sans TC", -apple-system, sans-serif;
+}
+:root[lang="hi"] {
+  --font-display: "Kohinoor Devanagari", "Devanagari Sangam MN", "Noto Serif Devanagari", serif;
+  --font-body: "Kohinoor Devanagari", "Devanagari Sangam MN", "Noto Sans Devanagari", -apple-system, sans-serif;
+}
+:root[lang="ar"] {
+  --font-display: "SF Arabic", "Geeza Pro", "Noto Naskh Arabic", serif;
+  --font-body: "SF Arabic", "Geeza Pro", "Noto Sans Arabic", -apple-system, sans-serif;
+}
+
+/* RTL: mirror the sidebar border so it sits on the correct edge */
+:root[dir="rtl"] .app-sidebar {
+  border-right: none;
+  border-left: 1px solid var(--border-subtle);
+}
+:root[dir="rtl"] .lang-menu { right: auto; left: 0; }
 
 * {
   box-sizing: border-box;
@@ -35,7 +104,7 @@ html, body {
   color: var(--text-primary);
   font-family: var(--font-body);
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224, 138, 60, 0.08), transparent);
+    radial-gradient(ellipse 80% 50% at 50% -10%, var(--hero-glow), transparent);
 }
 
 #root {
