@@ -64,8 +64,10 @@ export const api = {
     request(`/projects/${folder}/scenes/${sceneId}${qs({ workspaceRoot })}`, { method: "PUT", body: JSON.stringify(fields) }),
   reorderScenes: (workspaceRoot, folder, sceneIdsInOrder) =>
     request(`/projects/${folder}/scenes/reorder${qs({ workspaceRoot })}`, { method: "POST", body: JSON.stringify({ sceneIdsInOrder }) }),
-  setSceneTransition: (workspaceRoot, folder, sceneId, type, durationMs) =>
-    request(`/projects/${folder}/scenes/${sceneId}/transition${qs({ workspaceRoot })}`, { method: "PUT", body: JSON.stringify({ type, durationMs }) }),
+  setSceneTransition: (workspaceRoot, folder, sceneId, type, durationMs, durationSeconds) =>
+    request(`/projects/${folder}/scenes/${sceneId}/transition${qs({ workspaceRoot })}`, { method: "PUT", body: JSON.stringify({ type, durationMs, durationSeconds }) }),
+  generateTransitionVideo: (workspaceRoot, folder, sceneId, model) =>
+    request(`/projects/${folder}/scenes/${sceneId}/transition-video${qs({ workspaceRoot })}`, { method: "POST", body: JSON.stringify({ model }) }),
   deleteScene: (workspaceRoot, folder, sceneId) =>
     request(`/projects/${folder}/scenes/${sceneId}${qs({ workspaceRoot })}`, { method: "DELETE" }),
 
@@ -105,8 +107,14 @@ export const api = {
   // Batch
   generateAll: (workspaceRoot, folder, options) =>
     request(`/projects/${folder}/generate-all${qs({ workspaceRoot })}`, { method: "POST", body: JSON.stringify(options) }),
+  generateStoryboards: (workspaceRoot, folder) =>
+    request(`/projects/${folder}/generate-storyboards${qs({ workspaceRoot })}`, { method: "POST" }),
   exportFilm: (workspaceRoot, folder, options) =>
     request(`/projects/${folder}/export${qs({ workspaceRoot })}`, { method: "POST", body: JSON.stringify(options) }),
+  uploadMusic: (workspaceRoot, folder, base64, filename) =>
+    request(`/projects/${folder}/music${qs({ workspaceRoot })}`, { method: "POST", body: JSON.stringify({ base64, filename }) }),
+  deleteMusic: (workspaceRoot, folder) =>
+    request(`/projects/${folder}/music${qs({ workspaceRoot })}`, { method: "DELETE" }),
 
   assetUrl: (workspaceRoot, folder, relPath) =>
     `${BASE}/projects/${folder}/assets/${relPath}${qs({ workspaceRoot })}`,

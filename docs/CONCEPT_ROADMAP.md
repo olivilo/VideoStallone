@@ -248,3 +248,28 @@ Wunsch: „das letzte Bild der vorherigen Szene = das erste der nächsten".
 4. **Director-/Format-Einstellungen** + **Audio-Modell-Filter**.
 5. **Export mit xfade/acrossfade** (Übergänge wirken).
 6. **Morphing-Kette** (anspruchsvollstes Stück zuletzt).
+
+---
+
+# Update (2026-06-24): Übergänge als eigene Clips + Audio-Trennung
+
+## 17. Übergänge — überarbeitet (ersetzt Abschnitt 11)
+
+Der „nahtlose"/Morph-Übergang ist **kein** Anhängen eines Endbildes an die Szene mehr (das verkürzte die Szene). Stattdessen:
+
+- Ein Morph-Übergang ist ein **eigener Brücken-Clip mit eigener Länge in Sekunden** (2–10s, Default 3s).
+- **Erstes Bild** = der echte **letzte Frame** von Szene N (per `ffmpeg -sseof` extrahiert) bzw. N's Storyboard als Fallback.
+- **Letztes Bild** = N+1's Storyboard.
+- Er wird **separat generiert** (eigener Video-Job, eigenes Polling-Ziel `target: "transition"`) und beim Export **zwischen** die Szenen gesetzt — die Szenenlängen bleiben unangetastet.
+- Voraussetzung: ein Video-Modell mit End-Bild-Support (Kling u.a.).
+
+Soft-Übergänge (dissolve/wipe/fade) werden gespeichert; ihr Rendern via `xfade`/`acrossfade` beim Export ist der verbleibende Punkt.
+
+## 18. Audio — Sound vs. Musik (umgesetzt)
+
+- **Sound (pro Szene):** mit dem Video erzeugt, passend zur Szene. Filtert auf audio-fähige Modelle.
+- **Musik (ganzer Film):** eine durchgehende, hochgeladene Spur, beim Export über den fertigen Film gemischt (keine Schnitte an Übergängen). Lautstärke automatisch (leiser unter Sound, lauter ohne).
+
+## 19. Film-Format (umgesetzt)
+
+Ein Format-Dropdown (16:9/9:16/1:1/21:9/4:5) steuert **Bildgröße, Video-Seitenverhältnis und Export-Leinwand** gemeinsam. Der Export normalisiert alle Clips per Letterbox auf diese Leinwand (nie verzerrt), konstante fps, garantierte Tonspur.

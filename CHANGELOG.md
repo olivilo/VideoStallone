@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.4.0 — 2026-06-24
+
+### Film format (one setting drives everything)
+- **Format dropdown** (16:9 · 9:16 · 1:1 · 21:9 · 4:5) that sets a single film format used for **storyboard image size**, **video aspect ratio** and the **export canvas** — so images, clips and the final film all come out the same size
+- **Preview images now show in their real aspect ratio** (no more cropped "strip") — storyboards and video previews respect the chosen format
+
+### Robust export
+- Export now **normalizes every clip** to a common canvas (letterbox, never stretched), constant fps and a guaranteed audio track, then concatenates — fixes stretched/mismatched clips and timing glitches when scenes had different resolutions
+- Auto-detects the dominant resolution if no format is set
+
+### Scene workflow
+- **"Generate all storyboards" button** — create just the images for all scenes (no videos) so you can review them first
+- **View switcher** — *Everything · Texts · Storyboards · Videos* to focus on one stage and switch back
+- **Reorder arrows (▲▼)** on each scene to change the order
+- **Per-scene transition dropdown** — cut · dissolve · fades · wipes · slides · **seamless (morph)**
+
+### Seamless transitions as their own clips
+- A **"seamless" transition** is now a **separate bridge clip with its own length in seconds** — it does not shorten the scenes. It flows from a scene's last frame into the next scene's first storyboard image (extracts the real last frame via ffmpeg, uses the next storyboard as the end anchor)
+- Generated per transition and inserted between scenes at export
+
+### Audio: sound and music separated
+- **🔊 Sound (per scene)** — generated with each scene's video (scene-matched), filters to audio-capable video models
+- **🎵 Music (whole film)** — upload one continuous track that is laid over the assembled film at export (no cuts at scene boundaries), mixed under the per-scene sound or louder when there is none
+
+### Local image generation (ComfyUI), continued
+- The image-model dropdown in Settings switches to the **local ComfyUI checkpoints** when the ComfyUI provider is selected; text/image/video model fields are now searchable dropdowns with pricing
+
+### Quality
+- **Stronger negative prompt** — explicitly excludes reverse/backwards motion (people walking backwards, vehicles in reverse, rewind), anatomy errors and more; key exclusions are always appended even on top of a custom negative prompt
+
+### Notes
+- Soft transitions (dissolve/wipe/fade) are stored and shown; rendering them via ffmpeg `xfade`/`acrossfade` at export is the remaining piece. "Seamless (morph)" and "cut" are fully wired.
+
 ## v0.3.0 — 2026-06-24
 
 ### Internationalization (11 languages)

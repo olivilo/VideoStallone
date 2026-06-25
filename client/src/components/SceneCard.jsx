@@ -11,6 +11,12 @@ const STORYBOARD_BADGE = {
   error:      { key: "scene.sbError",      className: "badge-error" }
 };
 
+const TRANSITION_TYPES = [
+  "cut", "dissolve", "fadeblack", "fadewhite",
+  "wipeleft", "wiperight", "wipeup", "wipedown",
+  "slideleft", "slideright", "morph"
+];
+
 const VIDEO_BADGE = {
   idle:        { key: "scene.vIdle",       className: "badge-neutral" },
   submitting:  { key: "scene.vSubmitting", className: "badge-progress" },
@@ -28,11 +34,18 @@ export default function SceneCard({
   imageModel,
   videoModel,
   generateAudioDefault,
+  aspectRatio,
+  isFirst,
+  isLast,
+  onMove,
   onChanged,
   onDelete
 }) {
   const { t } = useTranslation();
+  const ASPECT_CSS = { "16:9": "16 / 9", "9:16": "9 / 16", "1:1": "1 / 1", "21:9": "21 / 9", "4:5": "4 / 5" };
+  const sceneAspect = ASPECT_CSS[aspectRatio] || "16 / 9";
   const [editing, setEditing] = useState(false);
+  const [transitionBusy, setTransitionBusy] = useState(false);
   const [draft, setDraft] = useState(scene);
   const [busy, setBusy] = useState(false);
   const [submittingVideo, setSubmittingVideo] = useState(false);
@@ -42,11 +55,12 @@ export default function SceneCard({
   useEffect(() => setDraft(scene), [scene]);
 
   useEffect(() => {
-    if (scene.videoStatus === "queued" || scene.videoStatus === "generating") {
+    const active = ["queued", "generating"];
+    if (active.includes(scene.videoStatus) || active.includes(scene.transitionVideoStatus)) {
       const interval = setInterval(() => onChanged(), 6000);
       return () => clearInterval(interval);
     }
-  }, [scene.videoStatus, onChanged]);
+  }, [scene.videoStatus, scene.transitionVideoStatus, onChanged]);
 
   async function handleSaveEdit() {
     setBusy(true);
@@ -150,6 +164,38 @@ export default function SceneCard({
     }
   }
 
+  async function handleTransitionChange(type, durationMs, durationSeconds) {
+    setTransitionBusy(true);
+    setError("");
+    try {
+      await api.setSceneTransition(workspaceRoot, folder, scene.id, type, durationMs, durationSeconds);
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setTransitionBusy(false);
+    }
+  }
+
+  async function handleGenerateTransition() {
+    setTransitionBusy(true);
+    setError("");
+    try {
+      await api.generateTransitionVideo(workspaceRoot, folder, scene.id, videoModel);
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setTransitionBusy(false);
+    }
+  }
+
+  const transitionOut = scene.transitionOut || { type: "cut", durationMs: 0 };
+  const transitionHasDuration = !["cut", "morph"].includes(transitionOut.type);
+  const isMorph = transitionOut.type === "morph";
+  const tvStatus = scene.transitionVideoStatus;
+  const tvActive = tvStatus === "queued" || tvStatus === "generating";
+
   const sbBadgeDef = STORYBOARD_BADGE[scene.storyboardStatus] || STORYBOARD_BADGE.pending;
   const sbBadge = { text: t(sbBadgeDef.key), className: sbBadgeDef.className };
   const effectiveVideoStatus = submittingVideo ? "submitting" : scene.videoStatus;
@@ -167,7 +213,7 @@ export default function SceneCard({
   const progress = isVideoActive && scene.videoJobProgress != null ? scene.videoJobProgress : null;
 
   return (
-    <div className="scene-card">
+    <div className="scene-card" style={{ "--scene-aspect": sceneAspect }}>
       <div className="scene-card-header">
         <span className="scene-order">#{scene.order}</span>
         {editing ? (
@@ -180,6 +226,12 @@ export default function SceneCard({
           <h3>{scene.title}</h3>
         )}
         <div className="scene-card-actions">
+          {onMove && (
+            <div className="scene-reorder">
+              <button className="btn-icon scene-move" title={t("scene.moveUp")} disabled={isFirst} onClick={() => onMove(scene.id, "up")}>▲</button>
+              <button className="btn-icon scene-move" title={t("scene.moveDown")} disabled={isLast} onClick={() => onMove(scene.id, "down")}>▼</button>
+            </div>
+          )}
           {!editing && (
             <button className="btn-icon" title={t("scene.editTitle")} onClick={() => setEditing(true)}>✏️</button>
           )}
@@ -305,7 +357,7 @@ export default function SceneCard({
           {error && <div className="error-banner">{error}</div>}
 
           <div className="scene-pipeline">
-            <div className="pipeline-step">
+            <div className="pipeline-step pipeline-step-storyboard">
               <span className={`badge ${sbBadge.className}`}>
                 {scene.storyboardStatus === "generating" && <span className="spinner" />}
                 {sbBadge.text}
@@ -337,7 +389,7 @@ export default function SceneCard({
               </div>
             </div>
 
-            <div className="pipeline-step">
+            <div className="pipeline-step pipeline-step-video">
               <div className="pipeline-step-status-row">
                 <span className={`badge ${vidBadge.className}`}>
                   {isVideoActive && <span className="spinner" />}
@@ -435,6 +487,77 @@ export default function SceneCard({
           </div>
         </div>
       </div>
+
+      {!isLast && (
+        <div className="scene-transition-bar">
+          <div className="transition-row">
+            <span className="transition-arrow">↓</span>
+            <label className="transition-label">{t("transitions.label")}</label>
+            <select
+              className="transition-select"
+              value={transitionOut.type}
+              onChange={(e) => handleTransitionChange(e.target.value, transitionOut.durationMs, transitionOut.durationSeconds)}
+              disabled={transitionBusy}
+            >
+              {TRANSITION_TYPES.map((tt) => (
+                <option key={tt} value={tt}>{t(`transitions.${tt}`)}</option>
+              ))}
+            </select>
+            {transitionHasDuration && (
+              <input
+                className="transition-duration"
+                type="number"
+                min="100"
+                max="3000"
+                step="100"
+                value={transitionOut.durationMs || 500}
+                onChange={(e) => handleTransitionChange(transitionOut.type, Number(e.target.value), transitionOut.durationSeconds)}
+                disabled={transitionBusy}
+                title={t("transitions.duration")}
+              />
+            )}
+            {isMorph && (
+              <label className="transition-seconds-label">
+                {t("transitions.seconds")}
+                <input
+                  className="transition-duration"
+                  type="number"
+                  min="2"
+                  max="10"
+                  step="1"
+                  value={transitionOut.durationSeconds || 3}
+                  onChange={(e) => handleTransitionChange("morph", 0, Number(e.target.value))}
+                  disabled={transitionBusy}
+                />
+              </label>
+            )}
+          </div>
+
+          {isMorph && (
+            <div className="transition-morph">
+              <p className="hint-text small transition-morph-hint">{t("transitions.morphHint")}</p>
+              {tvActive ? (
+                <span className="badge badge-progress"><span className="spinner" />{t("transitions.generating")}</span>
+              ) : tvStatus === "ready" && scene.transitionVideoPath ? (
+                <>
+                  <video className="scene-video-preview" src={api.assetUrl(workspaceRoot, folder, scene.transitionVideoPath)} controls />
+                  <button className="btn-tertiary btn-small" onClick={handleGenerateTransition} disabled={transitionBusy || !videoModel}>
+                    {t("transitions.regenerate")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="btn-secondary btn-small" onClick={handleGenerateTransition} disabled={transitionBusy || !videoModel}>
+                    {t("transitions.generate")}
+                  </button>
+                  <span className="hint-text small">{t("transitions.needsVideoFirst")}</span>
+                </>
+              )}
+              {scene.transitionVideoError && <p className="error-text">{scene.transitionVideoError}</p>}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

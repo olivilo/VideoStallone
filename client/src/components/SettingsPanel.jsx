@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import FolderPicker from "./FolderPicker";
+import ModelSelect from "./ModelSelect";
 
 export default function SettingsPanel({ settings, onSettingsChanged, onClose }) {
   const { t } = useTranslation();
@@ -17,6 +18,28 @@ export default function SettingsPanel({ settings, onSettingsChanged, onClose }) 
   const [comfy, setComfy] = useState(settings.comfyui || {});
   const [comfyModels, setComfyModels] = useState([]);
   const [comfyLoading, setComfyLoading] = useState(false);
+
+  // Model lists for the dropdowns (with pricing).
+  const [textModels, setTextModels] = useState([]);
+  const [imageModels, setImageModels] = useState([]);
+  const [videoModels, setVideoModels] = useState([]);
+
+  useEffect(() => {
+    if (!settings.hasApiKey) return;
+    api.listTextModels().then(d => setTextModels(d?.models || [])).catch(() => {});
+    api.listImageModels().then(d => setImageModels(d?.models || [])).catch(() => {});
+    api.listVideoModels().then(d => setVideoModels((d?.data || []).map(m => ({
+      id: m.id,
+      name: m.name || m.id,
+      priceLabel: m.pricing?.video ? `$${m.pricing.video}/s` : (m.pricing?.per_second ? `$${m.pricing.per_second}/s` : null)
+    })))).catch(() => {});
+  }, [settings.hasApiKey]);
+
+  // Auto-load ComfyUI checkpoints when the local provider is active.
+  useEffect(() => {
+    if (imageProvider === "comfyui" && comfyModels.length === 0) handleRefreshComfyModels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageProvider]);
 
   async function handleRefreshComfyModels() {
     setComfyLoading(true);
@@ -141,18 +164,37 @@ export default function SettingsPanel({ settings, onSettingsChanged, onClose }) 
           <p className="hint-text">{t("settings.models.hint")}</p>
 
           <label>{t("settings.models.text")}</label>
-          <input type="text" value={textModel} onChange={(e) => setTextModel(e.target.value)}
+          <ModelSelect value={textModel} onChange={setTextModel} models={textModels}
+            loading={settings.hasApiKey && textModels.length === 0}
             placeholder={t("settings.models.textPlaceholder")} />
 
           <label>{t("settings.models.image")}</label>
-          <input type="text" value={imageModel} onChange={(e) => setImageModel(e.target.value)}
-            placeholder={t("settings.models.imagePlaceholder")} />
+          {imageProvider === "comfyui" ? (
+            <div className="input-row">
+              {comfyModels.length > 0 ? (
+                <select value={comfy.checkpoint || ""} onChange={(e) => comfyField("checkpoint", e.target.value)}>
+                  {comfyModels.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              ) : (
+                <input type="text" value={comfy.checkpoint || ""} onChange={(e) => comfyField("checkpoint", e.target.value)}
+                  placeholder="model.safetensors" />
+              )}
+              <button className="btn-secondary" onClick={handleRefreshComfyModels} disabled={comfyLoading}>
+                {comfyLoading ? "…" : t("settings.imageProvider.refresh")}
+              </button>
+            </div>
+          ) : (
+            <ModelSelect value={imageModel} onChange={setImageModel} models={imageModels}
+              loading={settings.hasApiKey && imageModels.length === 0}
+              placeholder={t("settings.models.imagePlaceholder")} />
+          )}
 
           <label>{t("settings.models.video")}</label>
-          <input type="text" value={videoModel} onChange={(e) => setVideoModel(e.target.value)}
+          <ModelSelect value={videoModel} onChange={setVideoModel} models={videoModels}
+            loading={settings.hasApiKey && videoModels.length === 0}
             placeholder={t("settings.models.videoPlaceholder")} />
 
-          <button className="btn-secondary" onClick={handleSaveModels} style={{ marginTop: 8 }}>
+          <button className="btn-secondary" onClick={() => { handleSaveModels(); if (imageProvider === "comfyui") handleSaveImageProvider(); }} style={{ marginTop: 8 }}>
             {t("settings.models.save")}
           </button>
         </section>
@@ -179,21 +221,7 @@ export default function SettingsPanel({ settings, onSettingsChanged, onClose }) 
               <label>{t("settings.imageProvider.url")}</label>
               <input type="text" value={comfy.url || ""} onChange={(e) => comfyField("url", e.target.value)}
                 placeholder="http://localhost:8188" />
-
-              <label>{t("settings.imageProvider.checkpoint")}</label>
-              <div className="input-row">
-                {comfyModels.length > 0 ? (
-                  <select value={comfy.checkpoint || ""} onChange={(e) => comfyField("checkpoint", e.target.value)}>
-                    {comfyModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                ) : (
-                  <input type="text" value={comfy.checkpoint || ""} onChange={(e) => comfyField("checkpoint", e.target.value)}
-                    placeholder="model.safetensors" />
-                )}
-                <button className="btn-secondary" onClick={handleRefreshComfyModels} disabled={comfyLoading}>
-                  {comfyLoading ? "…" : t("settings.imageProvider.refresh")}
-                </button>
-              </div>
+              <p className="hint-text small">{t("settings.imageProvider.checkpoint")}: {comfy.checkpoint || "—"}</p>
 
               <div className="comfy-grid">
                 <div>

@@ -48,7 +48,10 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
   const [snapRunning, setSnapRunning] = useState(false);
   const [snapResult, setSnapResult] = useState(null);
   const [batchRunning, setBatchRunning] = useState(false);
+  const [storyboardsRunning, setStoryboardsRunning] = useState(false);
   const [exportRunning, setExportRunning] = useState(false);
+  const [sceneView, setSceneView] = useState("all");
+  const [musicUploading, setMusicUploading] = useState(false);
   const [exportResult, setExportResult] = useState(null);
 
   async function load() {
@@ -106,7 +109,7 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
             priceLabel = VIDEO_PRICING_MAP[m.id].price;
             pricePerSec = VIDEO_PRICING_MAP[m.id].pricePerSec || 0;
           }
-          return { id: m.id, name: m.name || m.id, priceLabel, pricePerSec };
+          return { id: m.id, name: m.name || m.id, priceLabel, pricePerSec, audioCapable: Boolean(m.audioCapable) };
         }));
       })
       .catch((err) => {
@@ -168,10 +171,75 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
     }
   }
 
+  async function handleMoveScene(sceneId, direction) {
+    const scenes = project.scenes;
+    const idx = scenes.findIndex((s) => s.id === sceneId);
+    const target = direction === "up" ? idx - 1 : idx + 1;
+    if (idx < 0 || target < 0 || target >= scenes.length) return;
+    const ids = scenes.map((s) => s.id);
+    [ids[idx], ids[target]] = [ids[target], ids[idx]];
+    try {
+      const { project: updated } = await api.reorderScenes(workspaceRoot, folder, ids);
+      setProject(updated);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   async function handleModelChange(field, value) {
     try {
       const { project } = await api.updateProjectSettings(workspaceRoot, folder, { [field]: value });
       setProject(project);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleAudioToggle(on) {
+    try {
+      const updates = { generateSound: on };
+      if (on) {
+        const sel = videoModels.find((m) => m.id === project.settings.videoModel);
+        if (sel && !sel.audioCapable) updates.videoModel = ""; // current model can't do audio
+      }
+      const { project: updated } = await api.updateProjectSettings(workspaceRoot, folder, updates);
+      setProject(updated);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleMusicToggle(on) {
+    try {
+      const { project: updated } = await api.updateProjectSettings(workspaceRoot, folder, { useMusic: on });
+      setProject(updated);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleMusicUpload(file) {
+    if (!file) return;
+    setMusicUploading(true);
+    setError("");
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const { project: updated } = await api.uploadMusic(workspaceRoot, folder, ev.target.result, file.name);
+        setProject(updated);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setMusicUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function handleMusicRemove() {
+    try {
+      const { project: updated } = await api.deleteMusic(workspaceRoot, folder);
+      setProject(updated);
     } catch (err) {
       setError(err.message);
     }
@@ -191,6 +259,22 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
       setError(err.message);
     } finally {
       setSnapRunning(false);
+    }
+  }
+
+  async function handleGenerateStoryboards() {
+    setStoryboardsRunning(true);
+    setError("");
+    try {
+      await api.generateStoryboards(workspaceRoot, folder);
+      await load();
+      setTimeout(load, 2500);
+      setTimeout(load, 6000);
+      setTimeout(load, 12000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setStoryboardsRunning(false);
     }
   }
 
@@ -238,6 +322,10 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
   );
   const batchHasErrors = project.scenes.some((s) => s.videoStatus === "error" || s.storyboardStatus === "error");
 
+  // Sound toggle: when on, only show video models that generate sound.
+  const audioOnly = Boolean(project.settings.generateSound ?? project.settings.defaultGenerateAudio);
+  const shownVideoModels = audioOnly ? videoModels.filter((m) => m.audioCapable) : videoModels;
+
   return (
     <div className="project-editor">
       <div className="project-editor-header">
@@ -261,7 +349,7 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
       ) : activeTab === "scenes" && (
         <>
           <section className="project-models-bar">
-            <label>
+            <div className="model-bar-cell">
               <span className="model-bar-label">
                 {t("editor.videoModel")}
                 {!project.settings.videoModel && <span className="model-required-badge">{t("editor.selectFirst")}</span>}
@@ -269,11 +357,19 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
               <ModelSelect
                 value={project.settings.videoModel || ""}
                 onChange={(v) => { handleModelChange("videoModel", v); setSnapResult(null); }}
-                models={videoModels}
+                models={shownVideoModels}
                 loading={videoModels.length === 0 && hasApiKey}
                 error={videoModelsError}
                 placeholder={t("editor.videoModelPlaceholder")}
               />
+              <button
+                type="button"
+                className={`audio-toggle ${audioOnly ? "audio-toggle-active" : ""}`}
+                title={t("audioToggle.hint")}
+                onClick={() => handleAudioToggle(!audioOnly)}
+              >
+                {audioOnly ? "🔊" : "🔇"} {t("audioToggle.label")}
+              </button>
               {project.settings.videoModel && project.scenes.length > 0 && (
                 <button
                   className="btn-snap-durations"
@@ -292,7 +388,7 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
                   }
                 </span>
               )}
-            </label>
+            </div>
             <label>
               {t("editor.imageModel")}
               <ModelSelect
@@ -326,6 +422,20 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
                 <option value="oil-painting">{t("styles.oilPainting")}</option>
                 <option value="watercolor">{t("styles.watercolor")}</option>
                 <option value="3d-render">{t("styles.render3d")}</option>
+              </select>
+            </label>
+            <label>
+              {t("editor.format")}
+              <select
+                value={project.settings.aspectRatio || ""}
+                onChange={(e) => handleModelChange("aspectRatio", e.target.value)}
+              >
+                <option value="">—</option>
+                <option value="16:9">{t("editor.format169")}</option>
+                <option value="9:16">{t("editor.format916")}</option>
+                <option value="1:1">{t("editor.format11")}</option>
+                <option value="21:9">{t("editor.format219")}</option>
+                <option value="4:5">{t("editor.format45")}</option>
               </select>
             </label>
           </section>
@@ -362,16 +472,17 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
               <summary>{t("editor.priceCompare")}</summary>
               <table className="video-price-table">
                 <thead>
-                  <tr><th>{t("editor.tableModel")}</th><th>{t("editor.tablePrice")}</th></tr>
+                  <tr><th>{t("editor.tableModel")}</th><th>🔊</th><th>{t("editor.tablePrice")}</th></tr>
                 </thead>
                 <tbody>
-                  {videoModels.map((m) => (
+                  {shownVideoModels.map((m) => (
                     <tr
                       key={m.id}
                       className={project.settings.videoModel === m.id ? "price-row-active" : ""}
                       onClick={() => handleModelChange("videoModel", m.id)}
                     >
                       <td><code>{m.name}</code></td>
+                      <td title={t("audioToggle.label")}>{m.audioCapable ? "🔊" : "—"}</td>
                       <td>{m.priceLabel || "—"}</td>
                     </tr>
                   ))}
@@ -386,6 +497,13 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
           <RefinementBar onRefine={handleReplan} refining={refining} />
 
           <div className="batch-action-bar">
+            <button
+              className="btn-secondary btn-large"
+              onClick={handleGenerateStoryboards}
+              disabled={storyboardsRunning || batchRunning}
+            >
+              {storyboardsRunning ? t("editor.storyboardsRunning") : t("editor.generateStoryboards")}
+            </button>
             <button
               className="btn-primary btn-large"
               onClick={handleGenerateAll}
@@ -410,8 +528,21 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
             )}
           </div>
 
-          <div className="scene-list">
-            {project.scenes.map((scene) => (
+          <div className="scene-view-switcher">
+            <span className="scene-view-label">{t("editor.viewLabel")}</span>
+            {["all", "text", "storyboards", "videos"].map((mode) => (
+              <button
+                key={mode}
+                className={`scene-view-btn ${sceneView === mode ? "scene-view-btn-active" : ""}`}
+                onClick={() => setSceneView(mode)}
+              >
+                {t(`editor.view${mode.charAt(0).toUpperCase()}${mode.slice(1)}`)}
+              </button>
+            ))}
+          </div>
+
+          <div className={`scene-list view-${sceneView}`}>
+            {project.scenes.map((scene, idx) => (
               <SceneCard
                 key={scene.id}
                 scene={scene}
@@ -420,6 +551,10 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
                 imageModel={project.settings.imageModel || defaultModels.image}
                 videoModel={project.settings.videoModel}
                 generateAudioDefault={project.settings.defaultGenerateAudio}
+                aspectRatio={project.settings.aspectRatio}
+                isFirst={idx === 0}
+                isLast={idx === project.scenes.length - 1}
+                onMove={handleMoveScene}
                 onChanged={load}
                 onDelete={handleDeleteScene}
               />
@@ -430,6 +565,37 @@ export default function ProjectEditor({ workspaceRoot, folder, onBack, defaultMo
 
           <section className="export-section">
             <h3>{t("editor.exportTitle", { ready: readyOrApprovedVideos.length, total: project.scenes.length })}</h3>
+
+            <div className="music-block">
+              <label className="music-toggle">
+                <input
+                  type="checkbox"
+                  checked={Boolean(project.settings.useMusic)}
+                  onChange={(e) => handleMusicToggle(e.target.checked)}
+                />
+                {t("music.title")}
+              </label>
+              {project.settings.useMusic && (
+                <div className="music-controls">
+                  <label className="btn-secondary btn-small music-upload-btn">
+                    {musicUploading ? t("music.uploading") : t("music.upload")}
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      style={{ display: "none" }}
+                      onChange={(e) => handleMusicUpload(e.target.files[0])}
+                    />
+                  </label>
+                  {project.settings.musicPath && (
+                    <span className="music-current">
+                      🎵 {t("music.current")} <code>{project.settings.musicPath}</code>
+                      <button className="btn-tertiary btn-small" onClick={handleMusicRemove}>{t("music.remove")}</button>
+                    </span>
+                  )}
+                  <p className="hint-text small">{t("music.hint")}</p>
+                </div>
+              )}
+            </div>
 
             {exportResult ? (
               <div className="export-success">
